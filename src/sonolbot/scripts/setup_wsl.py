@@ -9,12 +9,13 @@ import time
 from pathlib import Path
 from typing import Iterable
 
-from sonolbot.runtime import project_file, project_root
+from sonolbot.runtime import project_root
 
 ROOT = project_root()
 ENV_FILE = ROOT / ".env"
 VENV_DIR = ROOT / ".venv"
 VENV_PYTHON = VENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+REQUIREMENTS_FILE = ROOT / "requirements.txt"
 
 DEFAULT_ENV = [
     ("SONOLBOT_ALLOWED_SKILLS", "sonolbot-telegram,sonolbot-tasks"),
@@ -185,7 +186,7 @@ def run_setup_wsl(
 
     try:
         _run([str(VENV_PYTHON), "-m", "pip", "install", "--upgrade", "pip"])
-        _run([str(VENV_PYTHON), "-m", "pip", "install", "-r", str(project_file("requirements.txt"))])
+        _run([str(VENV_PYTHON), "-m", "pip", "install", "-r", str(REQUIREMENTS_FILE)])
     except Exception as exc:
         print(f"[error] dependency install failed: {exc}")
         return 1

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from sonolbot.runtime import project_root
+from sonolbot.runtime import codex_root, project_root
 
 
 load_dotenv(project_root() / ".env", override=False)
@@ -19,16 +19,19 @@ _BASE_DIR = project_root()
 _AGENT_ROOT = Path(os.getenv("SONOLBOT_AGENT_HOME") or "").expanduser().resolve() if os.getenv(
     "SONOLBOT_AGENT_HOME"
 ) else None
-_CODER_ROOT = (_AGENT_ROOT / ".codex" / "skills") if _AGENT_ROOT is not None else None
 _DEFAULT_SKILLS_DIR = _BASE_DIR / ".codex" / "skills"
 
 
 def _skills_root() -> Path:
-    if _CODER_ROOT is not None and _CODER_ROOT.exists():
-        return _CODER_ROOT
-    agent_runtime = _BASE_DIR / "agent_runtime" / ".codex" / "skills"
-    if agent_runtime.exists():
-        return agent_runtime
+    if _AGENT_ROOT is not None:
+        agent_skills = _AGENT_ROOT / ".codex" / "skills"
+        if agent_skills.exists():
+            return agent_skills
+
+    runtime_skills = codex_root() / "skills"
+    if runtime_skills.exists():
+        return runtime_skills
+
     return _DEFAULT_SKILLS_DIR
 
 

@@ -4,19 +4,19 @@
   - [x] 핵심 런타임/선택형(skills) 의존성 분류 완료
 
 - [ ] 2. uv 패키지 구조화
-  - [ ] `pyproject.toml` 생성 (name=sonolbot, click 기반 entrypoint `sonolbot`)
-  - [ ] 최소 런타임 의존성 정리 (dotenv, requests, click)
+  - [x] `pyproject.toml` 생성 (name=sonolbot, click 기반 entrypoint `sonolbot`)
+  - [x] 최소 런타임 의존성 정리 (dotenv, requests, click)
   - [ ] skills별 선택형 의존성 그룹 구성
-  - [ ] `requirements.txt`와 정합성 점검
+  - [x] `requirements.txt`와 정합성 점검
 
 - [x] 3. 코어 실행 진입점 정비
   - [x] click CLI 그룹/하위 커맨드 설계 (`daemon`, `panel`, `task`, `skill`, `setup`)
   - [x] 기존 root 스크립트(quick_check/process_pending 등)와 연동
 
-- [ ] 4. .codex/AGENTS 실행 위치 분리
-  - [ ] 코딩에이전트 실행 기준 디렉터리 추가 (예: `agent_runtime/`)
-  - [ ] `.codex` 경로 동적 해석(기본 root + `SONOLBOT_AGENT_HOME` fallback) 적용
-  - [ ] `AGENTS.md`, `AGENTS__FOR_CODER.md`, `.codex` 동기화/이관 반영
+- [x] 4. .codex/AGENTS 실행 위치 분리
+  - [x] 코딩에이전트 실행 기준 디렉터리 추가 (`agent_runtime/`)
+  - [x] `.codex` 경로 동적 해석(기본 root + `SONOLBOT_AGENT_HOME` fallback) 적용
+  - [x] `AGENTS.md`, `AGENTS__FOR_CODER.md`, `.codex` 분리 정리 반영
 
 - [x] 5. 배치/셸 스크립트 파이썬 전환
   - [x] setup_admin.bat -> `python` CLI로 이관

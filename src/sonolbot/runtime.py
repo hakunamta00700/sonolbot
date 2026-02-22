@@ -16,6 +16,13 @@ def env_path(name: str, default: str) -> str:
     return os.getenv(name, default).strip() or default
 
 
+def _has_content(path: Path) -> bool:
+    try:
+        return any(path.iterdir())
+    except OSError:
+        return False
+
+
 def agent_home() -> Path:
     configured = os.getenv("SONOLBOT_AGENT_HOME", "").strip()
     if configured:
@@ -31,7 +38,7 @@ def agent_runtime() -> Path:
 
 def codex_root() -> Path:
     preferred = agent_runtime() / ".codex"
-    if preferred.exists():
+    if preferred.exists() and _has_content(preferred):
         return preferred
     return project_root() / ".codex"
 
@@ -74,4 +81,8 @@ def resolve_paths() -> AgentRuntimePaths:
     runtime = agent_runtime()
     if not runtime.exists():
         runtime = base
-    return AgentRuntimePaths(root=runtime, codex=runtime / ".codex", skills=runtime / ".codex" / "skills")
+    return AgentRuntimePaths(
+        root=runtime,
+        codex=codex_root(),
+        skills=codex_root() / "skills",
+    )

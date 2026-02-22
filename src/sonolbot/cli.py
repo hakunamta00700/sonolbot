@@ -48,6 +48,13 @@ def _run_script(path: str, args: Iterable[str] | None = None, *, check: bool = T
     return proc.returncode
 
 
+def _resolve_agent_codex_root() -> Path:
+    configured = os.environ.get("SONOLBOT_AGENT_HOME", "").strip()
+    if configured:
+        return _to_env_path(configured) / ".codex"
+    return codex_root()
+
+
 def _list_py_modules(base: Path) -> list[Path]:
     if not base.exists():
         return []
@@ -199,7 +206,8 @@ def skill_install(source: str, name: str, force: bool) -> None:
     if not (src / "SKILL.md").exists():
         raise click.ClickException("source path must contain SKILL.md")
 
-    dst = _to_env_path(os.environ.get("SONOLBOT_AGENT_HOME", str(agent_home()))) / ".codex" / "skills" / (name or src.name)
+    dst = _resolve_agent_codex_root() / "skills" / (name or src.name)
+    dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.exists():
         if not force:
             raise click.ClickException(f"skill exists: {dst} (use --force)")
