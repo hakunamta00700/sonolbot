@@ -1,0 +1,7 @@
+# 소놀봇 (mybot_ver3_codex_zerosetting) Python 의존성 패키지
+
+# 환경 변수 관리 (.env 파일)
+python-dotenv==1.1.1
+
+# Telegram Bot API 직접 호출
+requests==2.32.3

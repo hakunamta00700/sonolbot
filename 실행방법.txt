@@ -1,0 +1,19 @@
+소놀봇 실행방법 (사용자용)
+
+1. setup.bat 실행
+- 프로젝트 폴더에서 setup.bat를 더블클릭합니다.
+- 처음 실행 시 필요한 모듈(.venv, requirements.txt)이 자동 설치됩니다.
+- .env 파일이 없으면 봇 토큰(TELEGRAM_BOT_TOKEN)과 허용 사용자 ID(TELEGRAM_ALLOWED_USERS)를 입력합니다.
+
+2. control_panel.exe 실행
+- control_panel.exe를 더블클릭합니다.
+- 작업표시줄에 "Sonolbot Daemon Control" 창이 표시됩니다.
+- 첫 실행 시 "Windows 로그인 시 자동 실행 등록" 여부를 묻는 팝업이 나옵니다.
+- Start 버튼: 봇 데몬 시작
+- Stop 버튼: 봇 데몬 중지
+- Refresh 버튼: 상태 갱신
+- Open Logs 버튼: 로그 폴더 열기
+- AutoStart 버튼: Windows 자동 시작 On/Off 전환
+
+3. 종료 방법
+- 작업을 멈출 때는 먼저 Stop 버튼을 누른 뒤 창을 닫습니다.
