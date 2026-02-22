@@ -14,11 +14,12 @@ import os
 import sys
 from pathlib import Path
 
-from skill_bridge import build_telegram_runtime, get_telegram_skill
+from sonolbot.core.skill_bridge import build_telegram_runtime, get_telegram_skill
+from sonolbot.runtime import project_root
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parent
+    root = project_root()
     store_path = Path(os.getenv("TELEGRAM_MESSAGE_STORE", str(root / "telegram_messages.json"))).resolve()
 
     runtime = build_telegram_runtime()

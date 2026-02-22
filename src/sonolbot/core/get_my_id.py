@@ -16,16 +16,17 @@ from typing import Any
 
 import requests
 from dotenv import load_dotenv
+from sonolbot.runtime import project_root
 
-load_dotenv()
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+load_dotenv(project_root() / ".env", override=False)
 API_TIMEOUT = float(os.getenv("TELEGRAM_API_TIMEOUT_SEC", "20"))
 
 
 def _api_get(method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-    if not BOT_TOKEN:
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    if not bot_token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is missing")
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/{method}"
+    url = f"https://api.telegram.org/bot{bot_token}/{method}"
     res = requests.get(url, params=params or {}, timeout=API_TIMEOUT)
     res.raise_for_status()
     payload = res.json()
@@ -40,7 +41,7 @@ def get_user_id() -> None:
     print("텔레그램 사용자 ID 확인")
     print("=" * 60)
 
-    if not BOT_TOKEN or BOT_TOKEN == "your_bot_token_here":
+    if not (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip() or os.getenv("TELEGRAM_BOT_TOKEN") == "your_bot_token_here":
         print("\n❌ 오류: .env 파일에 TELEGRAM_BOT_TOKEN을 먼저 설정하세요!")
         print("\n순서:")
         print("1. 텔레그램 앱에서 @BotFather 찾기")

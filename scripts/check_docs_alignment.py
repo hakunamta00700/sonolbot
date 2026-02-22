@@ -17,7 +17,7 @@ def main() -> int:
     root = Path(__file__).resolve().parent.parent
     agents = root / "AGENTS.md"
     agents_coder = root / "AGENTS__FOR_CODER.md"
-    daemon = root / "daemon_service.py"
+    daemon = root / "src" / "sonolbot" / "core" / "daemon_service.py"
 
     agents_text = _read(agents)
     coder_text = _read(agents_coder)

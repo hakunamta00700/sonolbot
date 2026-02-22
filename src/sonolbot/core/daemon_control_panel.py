@@ -20,7 +20,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from tkinter import messagebox, ttk
 
+
 from dotenv import load_dotenv
+from sonolbot.runtime import project_root as _runtime_project_root
 from scripts.bot_config_store import (
     default_config_path,
     load_config as load_bots_config,
@@ -36,12 +38,14 @@ from scripts.telegram_validation import (
 )
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = _runtime_project_root()
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
 load_dotenv(ROOT / ".env", override=False)
 LOGS_DIR = Path(os.getenv("LOGS_DIR", str(ROOT / "logs"))).resolve()
 PID_FILE = ROOT / ".daemon_service.pid"
 PANEL_PID_FILE = ROOT / ".control_panel.pid"
-SERVICE_SCRIPT = ROOT / "daemon_service.py"
+SERVICE_SCRIPT = ROOT / "src" / "sonolbot" / "core" / "daemon_service.py"
 AUTOSTART_PROMPT_FLAG = ROOT / ".control_panel_autostart_prompted"
 IS_WINDOWS_NATIVE = os.name == "nt"
 WSL_EXE = "wsl.exe"
@@ -625,7 +629,7 @@ def _wsl_path_bundle() -> tuple[str, str]:
     wsl_root = _resolve_wsl_project_path()
     if not wsl_root:
         return "", ""
-    return wsl_root, f"{wsl_root}/daemon_service.py"
+    return wsl_root, f"{wsl_root}/src/sonolbot/core/daemon_service.py"
 
 
 def _is_wsl_pid_alive(pid: int, expected_token: str = "") -> bool:
@@ -3071,7 +3075,7 @@ class ControlPanel(tk.Tk):
                 messagebox.showerror(tr("msg_error"), tr("msg_daemon_start_failed", detail=wsl_detail))
                 self.refresh_status()
                 return
-            wsl_root, wsl_service_script = _wsl_path_bundle()
+        wsl_root, wsl_service_script = _wsl_path_bundle()
             if not wsl_root or not wsl_service_script:
                 _diag_log("ERROR daemon_start aborted wsl_path_unresolved")
                 messagebox.showerror(tr("msg_error"), tr("msg_wsl_path_not_resolved"))
@@ -3112,7 +3116,7 @@ class ControlPanel(tk.Tk):
                 f"DAEMON_AGENT_REWRITER_REASONING_EFFORT={shlex.quote(rewriter_reasoning)} "
                 f"DAEMON_AGENT_REWRITER_PROMPT_FILE={shlex.quote(wsl_rewriter_prompt_path)} "
                 "LANG=C.UTF-8 LC_ALL=C.UTF-8 PYTHONUTF8=1 PYTHONIOENCODING=UTF-8 "
-                f"nohup \"$PY\" {shlex.quote(wsl_service_script)} "
+            f"nohup \"$PY\" {shlex.quote(wsl_service_script)} "
                 ">> /tmp/sonolbot-daemon-launch.log 2>&1 & "
                 "new_pid=''; "
                 "for _i in 1 2 3 4 5 6 7 8 9 10 "

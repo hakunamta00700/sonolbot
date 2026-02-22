@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['control_panel_launcher.py'],
+    ['src/sonolbot/core/control_panel_launcher.py'],
     pathex=[],
     binaries=[],
     datas=[],

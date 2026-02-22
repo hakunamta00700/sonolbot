@@ -28,15 +28,22 @@ from typing import Any, Optional
 import shutil
 import errno
 from dotenv import load_dotenv
-from skill_bridge import build_telegram_runtime, get_task_skill, get_telegram_skill
+
+from sonolbot.runtime import project_root
+
+PROJECT_ROOT = project_root()
+CORE_ROOT = PROJECT_ROOT / "src" / "sonolbot" / "core"
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
+
+load_dotenv(PROJECT_ROOT / ".env", override=False)
+from sonolbot.core.skill_bridge import build_telegram_runtime, get_task_skill, get_telegram_skill
 from scripts.bot_config_store import (
     default_config_path,
     load_config as load_bots_config,
     migrate_legacy_env_if_needed,
     save_config as save_bots_config,
 )
-
-load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
 try:
     import fcntl  # type: ignore
@@ -286,7 +293,7 @@ class _ProcessFileLock:
 
 class DaemonService:
     def __init__(self) -> None:
-        self.root = Path(__file__).resolve().parent
+        self.root = PROJECT_ROOT
         self.logs_dir = Path(os.getenv("LOGS_DIR", str(self.root / "logs"))).resolve()
         self.tasks_dir = Path(os.getenv("TASKS_DIR", str(self.root / "tasks"))).resolve()
         self.store_file = Path(os.getenv("TELEGRAM_MESSAGE_STORE", str(self.root / "telegram_messages.json"))).resolve()
@@ -1658,7 +1665,7 @@ class DaemonService:
         )
 
     def _run_quick_check(self) -> int:
-        cmd = [self.python_bin, str(self.root / "quick_check.py")]
+        cmd = [self.python_bin, str(CORE_ROOT / "quick_check.py")]
         proc = subprocess.run(
             cmd,
             cwd=str(self.root),
@@ -6360,7 +6367,7 @@ class MultiBotManager:
     """Root daemon manager that spawns one bot worker per configured token."""
 
     def __init__(self) -> None:
-        self.root = Path(__file__).resolve().parent
+        self.root = PROJECT_ROOT
         self.logs_dir = Path(os.getenv("LOGS_DIR", str(self.root / "logs"))).resolve()
         self.pid_file = Path(
             os.getenv("DAEMON_PID_FILE", str(self.root / ".daemon_service.pid"))
@@ -6570,7 +6577,7 @@ class MultiBotManager:
         bot_id = str(bot["bot_id"])
         workspace = self._workspace_for_bot(bot_id)
         env = self._worker_env(bot, workspace)
-        cmd = [self.python_bin, str(self.root / "daemon_service.py")]
+        cmd = [self.python_bin, str(CORE_ROOT / "daemon_service.py")]
         try:
             proc = subprocess.Popen(
                 cmd,

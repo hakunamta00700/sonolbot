@@ -14,6 +14,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from sonolbot.runtime import project_root
 
 DEFAULT_LOG_RETENTION_DAYS = 7
 LAUNCHER_LOG_PREFIX = "control-panel-launcher"
@@ -26,9 +27,10 @@ def _detect_root_dir() -> Path:
         candidates.append(Path(sys.executable).resolve().parent)
     candidates.append(Path(__file__).resolve().parent)
     candidates.append(Path.cwd())
+    candidates.append(project_root())
 
     for candidate in candidates:
-        if (candidate / "control_panel.bat").exists():
+        if (candidate / "control_panel_launcher.py").exists() or (candidate / "daemon_control_panel.py").exists():
             return candidate
     return candidates[0]
 
@@ -107,9 +109,9 @@ def main() -> int:
         f"root={root} cwd={Path.cwd()} exe={sys.executable}",
     )
 
-    bat = root / "control_panel.bat"
-    if not bat.exists():
-        _safe_write_log(log_path, f"ERROR missing_bat path={bat}")
+    panel_script = (project_root() / "src" / "sonolbot" / "core" / "daemon_control_panel.py")
+    if not panel_script.exists():
+        _safe_write_log(log_path, f"ERROR missing_control_panel path={panel_script}")
         return 1
 
     creationflags = 0
@@ -117,7 +119,7 @@ def main() -> int:
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
 
     forwarded_args = [str(v) for v in sys.argv[1:] if str(v).strip()]
-    cmd = ["cmd.exe", "/c", str(bat), "__silent__", *forwarded_args]
+    cmd = [sys.executable, str(panel_script), *forwarded_args]
     try:
         proc = subprocess.Popen(
             cmd,

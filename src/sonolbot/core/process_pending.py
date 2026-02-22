@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from daemon_service import DaemonService
+from sonolbot.core.daemon_service import DaemonService
 
 
 def _build_parser() -> argparse.ArgumentParser:
