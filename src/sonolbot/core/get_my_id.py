@@ -42,7 +42,7 @@ def get_user_id() -> None:
     print("=" * 60)
 
     if not (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip() or os.getenv("TELEGRAM_BOT_TOKEN") == "your_bot_token_here":
-        print("\n❌ 오류: .env 파일에 TELEGRAM_BOT_TOKEN을 먼저 설정하세요!")
+        print("\n오류: .env 파일에 TELEGRAM_BOT_TOKEN을 먼저 설정하세요!")
         print("\n순서:")
         print("1. 텔레그램 앱에서 @BotFather 찾기")
         print("2. /newbot 명령으로 봇 생성")
@@ -54,7 +54,7 @@ def get_user_id() -> None:
         me = _api_get("getMe").get("result", {})
         username = me.get("username", "(unknown)")
 
-        print(f"\n✅ 봇: @{username}")
+        print(f"\n봇: @{username}")
         print(f"\n📱 지금 텔레그램 앱에서 @{username} 에게")
         print("   아무 메시지나 보내주세요! (예: 안녕)")
         print("\n대기 중", end="", flush=True)
@@ -74,7 +74,7 @@ def get_user_id() -> None:
             if not updates:
                 continue
 
-            print("\n\n✅ 메시지 감지!\n")
+            print("\n\n메시지 감지!\n")
 
             for update in updates:
                 update_id = int(update.get("update_id", 0))
@@ -112,7 +112,7 @@ def get_user_id() -> None:
         print("다시 실행하고 봇에게 메시지를 보내주세요.")
 
     except Exception as exc:
-        print(f"\n\n❌ 오류: {exc}")
+        print(f"\n\n오류: {exc}")
         print("\n봇 토큰이 올바른지 확인하세요.")
 
 
