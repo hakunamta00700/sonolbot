@@ -3075,7 +3075,7 @@ class ControlPanel(tk.Tk):
                 messagebox.showerror(tr("msg_error"), tr("msg_daemon_start_failed", detail=wsl_detail))
                 self.refresh_status()
                 return
-        wsl_root, wsl_service_script = _wsl_path_bundle()
+            wsl_root, wsl_service_script = _wsl_path_bundle()
             if not wsl_root or not wsl_service_script:
                 _diag_log("ERROR daemon_start aborted wsl_path_unresolved")
                 messagebox.showerror(tr("msg_error"), tr("msg_wsl_path_not_resolved"))
