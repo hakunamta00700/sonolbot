@@ -15,8 +15,8 @@ def _read(path: Path) -> str:
 
 def main() -> int:
     root = Path(__file__).resolve().parent.parent
-    agents = root / "AGENTS.md"
-    agents_coder = root / "AGENTS__FOR_CODER.md"
+    agents = root / "agent_runtime" / "AGENTS.md"
+    agents_coder = root / "agent_runtime" / "AGENTS__FOR_CODER.md"
     daemon = root / "src" / "sonolbot" / "core" / "daemon_service.py"
 
     agents_text = _read(agents)
