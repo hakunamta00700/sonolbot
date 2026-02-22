@@ -61,7 +61,8 @@
 
 ## 4) 주변 스크립트/운영 보조
 - `process_pending.py`, `quick_check.py`: 작업 대기 상태 확인/1회 처리 루틴
-- `scripts/*`: 토큰 검증, bot config migration, task migration, DNS/setup 유틸
+- `src/sonolbot/tools/*`: task 조회/변환 유틸 (`task_commands`, `migrate_tasks_to_thread`, `backfill_task_display_fields`, `check_docs_alignment`)
+- `src/sonolbot/scripts/*`: 런타임 실행 보조 스크립트 래퍼 (`setup_wsl`, `setup_admin`, `configure_wsl_dns`, `control_panel`, `mybot_autoexecutor`, `build_control_panel_exe`)
 - `setup_admin.bat`, `setup_wsl.sh`, `mybot_autoexecutor.sh`: 배포/실행 절차 보조
 
 ## 5) 데이터/상태 저장
@@ -86,5 +87,6 @@
 - `.env` 필수값 완비 여부
 - `.control_panel_telegram_bots.json` 활성 bot 유효성(토큰/user)
 - 워커별 로그/리소스 사용량 모니터링
-- `scripts/check_docs_alignment.py` 주기 실행
+- `src/sonolbot/tools/check_docs_alignment.py` (`python -m sonolbot.tools.check_docs_alignment`) 주기 실행
 - 백업/로그 보관 정책 수립
+

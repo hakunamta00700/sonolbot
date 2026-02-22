@@ -53,8 +53,19 @@ uv sync --all-extras
 ### 1) 도움말
 
 ```bash
+uv run sonolbot version
 uv run sonolbot --help
-uv run sonolbot --version
+```
+`version`은 하위 명령으로 제공됩니다.
+
+```bash
+uv run sonolbot get-my-id
+```
+
+필요하면 Codex 런타임 위치를 지정할 수 있습니다.
+
+```bash
+uv run sonolbot --agent-home /path/to/agent_runtime task list
 ```
 
 ### 2) 환경 변수 생성

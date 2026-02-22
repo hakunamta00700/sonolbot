@@ -23,7 +23,7 @@ from tkinter import messagebox, ttk
 
 from dotenv import load_dotenv
 from sonolbot.runtime import project_root as _runtime_project_root
-from scripts.bot_config_store import (
+from sonolbot.core.bot_config_store import (
     default_config_path,
     load_config as load_bots_config,
     remove_bot as remove_bot_config,
@@ -31,7 +31,7 @@ from scripts.bot_config_store import (
     set_allowed_users_global as set_allowed_users_config,
     upsert_bot as upsert_bot_config,
 )
-from scripts.telegram_validation import (
+from sonolbot.core.telegram_validation import (
     fetch_bot_profile,
     validate_bot_token_format,
     validate_user_id_format,

@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from scripts.telegram_validation import mask_token, validate_bot_token_format
+from sonolbot.core.telegram_validation import mask_token, validate_bot_token_format
 
 
 SECURE_FILE_MODE = 0o600

@@ -1,4 +1,4 @@
-# AGENTS__FOR_CODER.md
+﻿# AGENTS__FOR_CODER.md
 
 업데이트: 2026-02-16  
 대상: 소놀봇 코덱스 시스템을 직접 변경/확장하는 AI 및 개발자
@@ -33,7 +33,7 @@
 - `daemon_service.py`: 오케스트레이터(수집/턴제어/전송/태스크/세션메타/UI 버튼)
 - `quick_check.py`: 텔레그램 polling + pending 판단(exit code 0/1/2)
 - `skill_bridge.py`: 허용 스킬 로딩 + runtime/env 조립
-- `scripts/task_commands.py`: TASK 목록/검색/활성화 CLI(JSON)
+- `sonolbot.tools.task_commands`: TASK 목록/검색/활성화 CLI(JSON)
 - `.codex/skills/sonolbot-tasks/scripts/task_memory.py`: TASK 메모리 생성/갱신/검색
 - `process_pending.py`: 데몬 공통 사이클 재사용 드레인 스크립트(주 실행경로 아님)
 
@@ -84,7 +84,7 @@
 
 안전 규칙:
 - `.control_panel_telegram_bots.json`은 정규식/문자열 치환(`sed`, `perl`)으로 수정하지 않는다.
-- 반드시 `scripts/bot_config_store.py`의 로더/세이버 경로를 통해 JSON 정합성을 유지한다.
+- 반드시 `sonolbot.core.bot_config_store`의 로더/세이버 경로를 통해 JSON 정합성을 유지한다.
 
 TASK 지침 파일:
 - 경로: `bots/{bot_id}/tasks/chat_{chat_id}/thread_{thread_id}/AGENTS.md`
@@ -166,7 +166,7 @@ rewriter 작업폴더:
 - `daemon_service.py`
 - `quick_check.py`
 - `skill_bridge.py`
-- `scripts/task_commands.py`
+- `sonolbot.tools.task_commands`
 - `.codex/skills/sonolbot-telegram/scripts/telegram_io.py`
 - `.codex/skills/sonolbot-tasks/scripts/task_memory.py`
 
@@ -239,9 +239,9 @@ rewriter:
 ## 11) 변경 후 검증 체크리스트
 
 필수:
-1. `python3 -m py_compile daemon_service.py quick_check.py skill_bridge.py scripts/task_commands.py`
+1. `python3 -m py_compile daemon_service.py quick_check.py skill_bridge.py sonolbot.tools.task_commands`
 2. `python3 -m py_compile .codex/skills/sonolbot-tasks/scripts/task_memory.py`
-3. `python3 scripts/check_docs_alignment.py`
+3. `python -m sonolbot.tools.check_docs_alignment`
 4. `logs/daemon-YYYY-MM-DD.log` 오류 확인
 5. app-server 모드에서 `logs/codex-session-current.json` 갱신 확인
 6. TASK 변경 경로에서 `tasks/chat_*/thread_*/INSTRUNCTION.md` 갱신 확인
@@ -258,5 +258,7 @@ rewriter:
 1. 레거시 `msg_*` 데이터가 많은 경우, 검색/목록에서 thread 단위와 legacy 항목이 혼재될 수 있다.
 2. `task_id` 정규화 규칙을 우회해 `message_id`만 직접 사용하는 신규 코드는 구조 드리프트를 만든다.
 3. app-server에서 `session_id`는 별칭이므로 신규 구현은 `thread_id` 우선으로 다룬다.
-4. 문서-런타임 정합은 `scripts/check_docs_alignment.py` 기준으로 유지한다.
+4. 문서-런타임 정합은 `sonolbot.tools.check_docs_alignment` 기준으로 유지한다.
 5. 레거시 `msg_*`를 thread로 바꿀 때는 `thread_id` 또는 `legacy_task_thread_map.json` 기반의 확정값만 사용한다.
+
+

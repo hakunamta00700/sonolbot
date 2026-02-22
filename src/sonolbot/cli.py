@@ -36,18 +36,6 @@ def _run_python_module(module: str, args: Iterable[str] | None = None, *, check:
     return proc.returncode
 
 
-def _run_script(path: str, args: Iterable[str] | None = None, *, check: bool = True) -> int:
-    target = _project() / path
-    if not target.exists():
-        raise click.ClickException(f"missing script: {target}")
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(_project()) + (os.pathsep + env.get("PYTHONPATH", ""))
-    proc = subprocess.run([sys.executable, str(target), *list(args or [])], cwd=str(_project()), env=env)
-    if check and proc.returncode != 0:
-        raise click.ClickException(f"command failed: {target} (exit={proc.returncode})")
-    return proc.returncode
-
-
 def _resolve_agent_codex_root() -> Path:
     configured = os.environ.get("SONOLBOT_AGENT_HOME", "").strip()
     if configured:
@@ -146,7 +134,7 @@ def task_list(tasks_dir: str, limit: int, keyword: str, json_output: bool) -> No
     args = ["list", "--tasks-dir", tasks_dir, "--limit", str(limit), "--keyword", keyword]
     if json_output:
         args.append("--json")
-    _run_script("scripts/task_commands.py", args)
+    _run_python_module("sonolbot.tools.task_commands", args)
 
 
 @task.command("activate", help="Resolve one task by id/keyword.")
@@ -160,7 +148,7 @@ def task_activate(target: str, tasks_dir: str, include_instrunction: bool, json_
         args.append("--include-instrunction")
     if json_output:
         args.append("--json")
-    _run_script("scripts/task_commands.py", args)
+    _run_python_module("sonolbot.tools.task_commands", args)
 
 
 @main.group(help="Skill helper commands (.codex/skills).")

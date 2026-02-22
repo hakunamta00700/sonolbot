@@ -10,8 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from sonolbot.runtime import project_root
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+
+ROOT_DIR = project_root()
 DEFAULT_TASKS_DIR = ROOT_DIR / "tasks"
 INDEX_FILENAME = "index.json"
 RELATED_FILENAME = "related_tasks.json"

@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from task_commands import _build_task_item
+from sonolbot.tools.task_commands import _build_task_item
 
 
 INDEX_FILENAME = "index.json"

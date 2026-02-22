@@ -37,13 +37,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
 load_dotenv(PROJECT_ROOT / ".env", override=False)
-from sonolbot.core.skill_bridge import build_telegram_runtime, get_task_skill, get_telegram_skill
-from scripts.bot_config_store import (
+from sonolbot.core.bot_config_store import (
     default_config_path,
     load_config as load_bots_config,
     migrate_legacy_env_if_needed,
     save_config as save_bots_config,
 )
+from sonolbot.core.skill_bridge import build_telegram_runtime, get_task_skill, get_telegram_skill
 
 try:
     import fcntl  # type: ignore
@@ -2433,7 +2433,7 @@ class DaemonService:
             self._remember_completed_message_ids({int(message_id)})
 
     def _run_task_commands_json(self, args: list[str], timeout_sec: float = 25.0) -> dict[str, Any] | None:
-        cmd = [self.python_bin, str(self.root / "scripts" / "task_commands.py"), *args]
+        cmd = [self.python_bin, "-m", "sonolbot.tools.task_commands", *args]
         try:
             proc = subprocess.run(
                 cmd,
@@ -6238,13 +6238,13 @@ class DaemonService:
         return idle_sec >= float(self.idle_timeout_sec)
 
     def _run_doc_runtime_check(self) -> None:
-        script_path = self.root / "scripts" / "check_docs_alignment.py"
-        if not script_path.exists():
-            self._log(f"WARN: docs alignment checker missing: {script_path}")
+        checker_path = self.root / "src" / "sonolbot" / "tools" / "check_docs_alignment.py"
+        if not checker_path.exists():
+            self._log(f"WARN: docs alignment checker missing: {checker_path}")
             return
         try:
             proc = subprocess.run(
-                [self.python_bin, str(script_path)],
+                [self.python_bin, "-m", "sonolbot.tools.check_docs_alignment"],
                 cwd=str(self.root),
                 env=self.env,
                 text=True,

@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from sonolbot.runtime import project_root
+
 
 def _read(path: Path) -> str:
     try:
@@ -14,7 +16,7 @@ def _read(path: Path) -> str:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parent.parent
+    root = project_root()
     agents = root / "agent_runtime" / "AGENTS.md"
     agents_coder = root / "agent_runtime" / "AGENTS__FOR_CODER.md"
     daemon = root / "src" / "sonolbot" / "core" / "daemon_service.py"
