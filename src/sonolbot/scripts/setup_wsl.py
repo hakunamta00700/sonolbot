@@ -57,6 +57,9 @@ def _has_command(name: str) -> bool:
 
 
 def _run(cmd: list[str], check: bool = True, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    if os.name == "nt" and cmd and cmd[0] in {"npm", "codex"}:
+        shell_cmd = subprocess.list2cmdline(cmd)
+        cmd = ["cmd", "/c", shell_cmd]
     return subprocess.run(
         cmd,
         check=check,
@@ -75,6 +78,19 @@ def _install_via_apt(pkgs: Iterable[str]) -> bool:
         return True
     except Exception:
         return False
+
+
+def _ensure_venv_pip() -> bool:
+    try:
+        _run([str(VENV_PYTHON), "-m", "pip", "--version"])
+        return True
+    except Exception:
+        try:
+            _run([str(VENV_PYTHON), "-m", "ensurepip"])
+            _run([str(VENV_PYTHON), "-m", "pip", "--version"])
+            return True
+        except Exception:
+            return False
 
 
 def _check_or_install(cmd: str, pkg: str, auto_install: bool) -> bool:
@@ -101,7 +117,7 @@ def _ensure_python(auto_apt_install: bool) -> bool:
 
 def _ensure_tkinter(auto_apt_install: bool) -> bool:
     try:
-        _run(["python3", "- <<'PY'\nimport tkinter\nPY"], check=True)
+        _run(["python3", "-c", "import tkinter"], check=True)
         return True
     except Exception:
         if not auto_apt_install:
@@ -169,6 +185,8 @@ def run_setup_wsl(
     if not (python_ok and node_ok):
         if not setup_noninteractive:
             print("[warn] prerequisites are not fully satisfied.")
+            print("  - python: ", "ok" if python_ok else "missing (python3 / pip / venv)")
+            print("  - node/npm/codex:", "ok" if node_ok else "missing")
         return 1
 
     print("  - python: ", "ok" if python_ok else "missing")
@@ -183,6 +201,9 @@ def run_setup_wsl(
         except Exception as exc:
             print(f"[error] failed to create venv: {exc}")
             return 1
+    if not _ensure_venv_pip():
+        print("[error] python venv pip bootstrap failed.")
+        return 1
 
     try:
         _run([str(VENV_PYTHON), "-m", "pip", "install", "--upgrade", "pip"])

@@ -9,7 +9,12 @@ from pathlib import Path
 
 def project_root() -> Path:
     """Return repository root where this file is located."""
-    return Path(__file__).resolve().parents[3]
+    candidate = Path(__file__).resolve()
+    for parent in candidate.parents:
+        if (parent / "pyproject.toml").exists() and (parent / "src").is_dir():
+            return parent
+    # fallback for historical layouts
+    return candidate.parents[2]
 
 
 def env_path(name: str, default: str) -> str:
