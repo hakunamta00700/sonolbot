@@ -121,3 +121,11 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
 - [x] 체크: `rg -n "python3|python3.exe|_candidate_venv_python_paths|test_init_core_runtime_checks_venv_python_order" src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py`
 - [x] 커밋: `refactor(core): extend venv python candidates`
+
+## 우선순위 16: Core 런타임 env setter 정규화
+- [x] 작업: `DaemonServiceCoreRuntime`에 `set_env`/`_sanitize_env` 추가
+- [x] 작업: `DaemonServiceCoreMixin.env` setter에서 런타임 `set_env` 사용
+- [x] 테스트: `test_set_env_rebuilds_gui_session_marker` 추가
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
+- [x] 체크: `rg -n "set_env\\(|_sanitize_env\\(|SONOLBOT_GUI_SESSION" src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py`
+- [x] 커밋: `refactor(core): normalize env updates through helper`

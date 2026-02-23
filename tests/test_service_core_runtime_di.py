@@ -124,6 +124,21 @@ else:
                 service._init_core_runtime()
                 self.assertEqual(service.python_bin, expected)
 
+        def test_set_env_rebuilds_gui_session_marker(self) -> None:
+            class _NoDisplayPolicy(DaemonServiceCoreEnvPolicy):
+                def has_gui_session(self, env: dict[str, str]) -> bool:
+                    return False
+
+            service = _FakeServiceForCoreRuntime(Path.cwd())
+            runtime = DaemonServiceCoreRuntime(service, env_policy=_NoDisplayPolicy())
+            service._init_core_runtime(runtime)
+
+            service.env = {"LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8"}
+            runtime = service._get_core_runtime()
+            self.assertIsNotNone(runtime)
+            assert runtime is not None
+            self.assertEqual(runtime.env.get("SONOLBOT_GUI_SESSION"), "0")
+
         def test_init_core_runtime_builds_env_default_gui_session_marker(self) -> None:
             service = _FakeServiceForCoreRuntime(Path.cwd())
             service._init_core_runtime()

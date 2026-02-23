@@ -32,10 +32,22 @@ class DaemonServiceCoreRuntime:
         self.codex_run_meta: Optional[dict[str, object]] = None
         self.codex_cli_version = ""
         self.stop_requested = False
+        self._runtime_env: dict[str, str] | None = None
         self.env = self._build_default_env()
 
     def _build_default_env(self) -> dict[str, str]:
         return self.env_policy.build_default_env()
+
+    def set_env(self, env: dict[str, str]) -> None:
+        self._runtime_env = self._sanitize_env(dict(env))
+        self.env = dict(self._runtime_env)
+
+    def _sanitize_env(self, env: dict[str, str]) -> dict[str, str]:
+        normalized = dict(env)
+        normalized["SONOLBOT_GUI_SESSION"] = (
+            "1" if self._has_gui_session(normalized) else "0"
+        )
+        return normalized
 
     def _detect_python_bin(self) -> str:
         root = getattr(self.service, "root", None)
@@ -150,4 +162,4 @@ class DaemonServiceCoreMixin:
         runtime = self._get_core_runtime()
         if runtime is None:
             return
-        runtime.env = dict(value)
+        runtime.set_env(value)
