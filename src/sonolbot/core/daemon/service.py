@@ -2784,8 +2784,13 @@ class DaemonService:
         if text.startswith("__cb__:") and current_mode != UI_MODE_AWAITING_RESUME_CHOICE:
             reply_text = "선택 가능한 목록이 만료되었어요. `TASK 목록 보기(최근20)`를 다시 눌러 주세요."
             keyboard_rows = self._main_menu_keyboard_rows()
-            sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
+            sent = self._send_control_reply(
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_text=reply_text,
+                keyboard_rows=keyboard_rows,
+                request_max_attempts=1,
+            )
             return True
 
         if text == BUTTON_TASK_LIST_RECENT20:
@@ -2796,9 +2801,10 @@ class DaemonService:
                 reply_text = "최근 TASK 20개를 보여드리려 했지만, 조회된 TASK가 없습니다."
                 keyboard_rows = self._main_menu_keyboard_rows()
                 inline_keyboard_rows = None
-                sent = self._telegram_send_text(
+                sent = self._send_control_reply(
                     chat_id=chat_id,
-                    text=reply_text,
+                    message_id=message_id,
+                    reply_text=reply_text,
                     keyboard_rows=keyboard_rows,
                     inline_keyboard_rows=inline_keyboard_rows,
                     request_max_attempts=1,
@@ -2833,13 +2839,13 @@ class DaemonService:
                     "현재 선택된 TASK가 없습니다.\n"
                     "먼저 `TASK 목록 보기(최근20)` 또는 `기존 TASK 이어하기`로 TASK를 선택해 주세요."
                 )
-                sent = self._telegram_send_text(
+                sent = self._send_control_reply(
                     chat_id=chat_id,
-                    text=reply_text,
+                    message_id=message_id,
+                    reply_text=reply_text,
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             relative_path = self._task_agents_relative_path(chat_id=chat_id, thread_id=guide_thread_id)
@@ -2915,13 +2921,13 @@ class DaemonService:
             if not self.is_bot_worker or not self.bot_id:
                 self._clear_ui_mode(state)
                 reply_text = "현재 실행 환경에서는 봇 이름 변경을 지원하지 않습니다."
-                sent = self._telegram_send_text(
+                sent = self._send_control_reply(
                     chat_id=chat_id,
-                    text=reply_text,
+                    message_id=message_id,
+                    reply_text=reply_text,
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             base_name = self._resolve_bot_base_name()
@@ -2934,14 +2940,14 @@ class DaemonService:
                 "원하는 별칭을 입력해 주세요.\n"
                 "적용 형식: <code>기존이름(별칭)</code>"
             )
-            sent = self._telegram_send_text(
+            sent = self._send_control_reply(
                 chat_id=chat_id,
-                text=reply_text,
+                message_id=message_id,
+                reply_text=reply_text,
                 keyboard_rows=self._main_menu_keyboard_rows(),
                 request_max_attempts=1,
                 parse_mode="HTML",
             )
-            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         temp_mode_passthrough_buttons = {
@@ -2976,13 +2982,13 @@ class DaemonService:
                     "방금 보낸 내용을 첫 요청으로 이어서 처리합니다."
                 )
                 keyboard_rows = self._main_menu_keyboard_rows()
-                sent = self._telegram_send_text(
+                sent = self._send_control_reply(
                     chat_id=chat_id,
-                    text=reply_text,
+                    message_id=message_id,
+                    reply_text=reply_text,
                     keyboard_rows=keyboard_rows,
                     request_max_attempts=1,
                 )
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             if text == BUTTON_TASK_RESUME:
@@ -2992,13 +2998,13 @@ class DaemonService:
                     self._set_ui_mode(state, UI_MODE_AWAITING_RESUME_QUERY)
                     reply_text = "원하시는 TASK를 검색하겠습니다. 검색어를 입력해주세요"
                     keyboard_rows = self._main_menu_keyboard_rows()
-                    sent = self._telegram_send_text(
+                    sent = self._send_control_reply(
                         chat_id=chat_id,
-                        text=reply_text,
+                        message_id=message_id,
+                        reply_text=reply_text,
                         keyboard_rows=keyboard_rows,
                         request_max_attempts=1,
                     )
-                    self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                     return True
 
                 candidates = self._search_task_candidates_for_resume(
@@ -3014,13 +3020,13 @@ class DaemonService:
                         "다른 키워드를 입력해 주세요."
                     )
                     keyboard_rows = self._main_menu_keyboard_rows()
-                    sent = self._telegram_send_text(
+                    sent = self._send_control_reply(
                         chat_id=chat_id,
-                        text=reply_text,
+                        message_id=message_id,
+                        reply_text=reply_text,
                         keyboard_rows=keyboard_rows,
                         request_max_attempts=1,
                     )
-                    self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                     return True
 
                 candidate_ids, candidate_buttons, candidate_map = self._build_resume_choice_payload(
@@ -3052,13 +3058,13 @@ class DaemonService:
 
             reply_text = "새 TASK로 시작할지, 기존 TASK를 이어갈지 버튼으로 선택해 주세요."
             keyboard_rows = [[BUTTON_TASK_NEW, BUTTON_TASK_RESUME]]
-            sent = self._telegram_send_text(
+            sent = self._send_control_reply(
                 chat_id=chat_id,
-                text=reply_text,
+                message_id=message_id,
+                reply_text=reply_text,
                 keyboard_rows=keyboard_rows,
                 request_max_attempts=1,
             )
-            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if text == BUTTON_TASK_RESUME:
@@ -3070,13 +3076,13 @@ class DaemonService:
             state["resume_candidate_map"] = {}
             reply_text = "원하시는 TASK를 검색하겠습니다. 검색어를 입력해주세요"
             keyboard_rows = self._main_menu_keyboard_rows()
-            sent = self._telegram_send_text(
+            sent = self._send_control_reply(
                 chat_id=chat_id,
-                text=reply_text,
+                message_id=message_id,
+                reply_text=reply_text,
                 keyboard_rows=keyboard_rows,
                 request_max_attempts=1,
             )
-            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if text == BUTTON_TASK_NEW:
@@ -3088,13 +3094,13 @@ class DaemonService:
             state["resume_candidate_map"] = {}
             reply_text = "새 TASK로 시작할 지시를 입력해 주세요."
             keyboard_rows = self._main_menu_keyboard_rows()
-            sent = self._telegram_send_text(
+            sent = self._send_control_reply(
                 chat_id=chat_id,
-                text=reply_text,
+                message_id=message_id,
+                reply_text=reply_text,
                 keyboard_rows=keyboard_rows,
                 request_max_attempts=1,
             )
-            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if text == BUTTON_MENU_BACK:
@@ -3102,8 +3108,13 @@ class DaemonService:
             self._clear_ui_mode(state)
             reply_text = "메뉴로 돌아왔어요."
             keyboard_rows = self._main_menu_keyboard_rows()
-            sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
+            sent = self._send_control_reply(
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_text=reply_text,
+                keyboard_rows=keyboard_rows,
+                request_max_attempts=1,
+            )
             return True
 
         if current_mode == UI_MODE_AWAITING_RESUME_QUERY:
@@ -3115,8 +3126,13 @@ class DaemonService:
             if not candidates:
                 reply_text = f"`{text}`와 연관된 TASK를 찾지 못했습니다. 다른 키워드를 입력해 주세요."
                 keyboard_rows = self._main_menu_keyboard_rows()
-                sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
+                sent = self._send_control_reply(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_text=reply_text,
+                    keyboard_rows=keyboard_rows,
+                    request_max_attempts=1,
+                )
                 return True
 
             candidate_ids, candidate_buttons, candidate_map = self._build_resume_choice_payload(
@@ -3162,8 +3178,13 @@ class DaemonService:
             if callback_selected_task_id and candidate_ids and selected_task_id not in candidate_ids:
                 reply_text = "선택 가능한 목록이 갱신되었습니다. `TASK 목록 보기(최근20)`를 다시 눌러 주세요."
                 keyboard_rows = self._main_menu_keyboard_rows()
-                sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
+                sent = self._send_control_reply(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_text=reply_text,
+                    keyboard_rows=keyboard_rows,
+                    request_max_attempts=1,
+                )
                 return True
             if not selected_task_id:
                 if inline_only:
@@ -3179,8 +3200,13 @@ class DaemonService:
                         if candidate_buttons
                         else self._main_menu_keyboard_rows()
                     )
-                sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
+                sent = self._send_control_reply(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_text=reply_text,
+                    keyboard_rows=keyboard_rows,
+                    request_max_attempts=1,
+                )
                 return True
 
             row = self._load_task_row(chat_id=chat_id, task_id=selected_task_id, include_instrunction=False)
@@ -3194,8 +3220,13 @@ class DaemonService:
                     if candidate_buttons
                     else self._main_menu_keyboard_rows()
                 )
-                sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
+                sent = self._send_control_reply(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_text=reply_text,
+                    keyboard_rows=keyboard_rows,
+                    request_max_attempts=1,
+                )
                 return True
 
             self._set_selected_task_state(chat_id=chat_id, state=state, row=row)
@@ -3268,13 +3299,13 @@ class DaemonService:
             alias = self._normalize_bot_alias(text, max_len=32)
             if not alias:
                 reply_text = "별칭이 비어 있습니다. 1~32자 별칭을 입력해 주세요."
-                sent = self._telegram_send_text(
+                sent = self._send_control_reply(
                     chat_id=chat_id,
-                    text=reply_text,
+                    message_id=message_id,
+                    reply_text=reply_text,
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             ok, reply_text = self._rename_bot_display_name(
@@ -3283,14 +3314,14 @@ class DaemonService:
             )
             if ok:
                 self._clear_ui_mode(state)
-            sent = self._telegram_send_text(
+            sent = self._send_control_reply(
                 chat_id=chat_id,
-                text=reply_text,
+                message_id=message_id,
+                reply_text=reply_text,
                 keyboard_rows=self._main_menu_keyboard_rows(),
                 request_max_attempts=1,
                 parse_mode="HTML",
             )
-            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if current_mode == UI_MODE_AWAITING_NEW_TASK_INPUT:
@@ -3335,14 +3366,14 @@ class DaemonService:
                     "새 TASK로 시작할지, 기존 TASK를 이어갈지 선택해 주세요."
                 )
                 keyboard_rows = [[BUTTON_TASK_NEW, BUTTON_TASK_RESUME]]
-                sent = self._telegram_send_text(
+                sent = self._send_control_reply(
                     chat_id=chat_id,
-                    text=reply_text,
+                    message_id=message_id,
+                    reply_text=reply_text,
                     keyboard_rows=keyboard_rows,
                     request_max_attempts=1,
                     parse_mode="HTML",
                 )
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
         return False

@@ -13,8 +13,8 @@ Rules
   - Keep defaults compatible with current UI flow (`request_max_attempts=1`, optional `parse_mode`, optional keyboards)
 - [x] R1-2: Use `_send_control_reply(...)` in `_forward_task_guide_edit_request`
   - Replace direct send/finalize pairs with helper
-- [ ] R1-3: Use `_send_control_reply(...)` in `_handle_single_control_message`
-  - Replace repeated `sent = ...` + finalize call
+- [x] R1-3: Use `_send_control_reply(...)` in `_handle_single_control_message`
+  - Replace repeated `sent = ...` + finalize call for simple control-message branches
 - [ ] R1-4: Run syntax check and commit
 
 ## 2) Telegram transport helper consolidation (Priority 2)
