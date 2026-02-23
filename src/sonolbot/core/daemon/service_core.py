@@ -1,0 +1,120 @@
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+from typing import Any, Optional
+
+from sonolbot.core.daemon.runtime_shared import *
+
+
+class DaemonServiceCoreRuntime:
+    def __init__(self, service: Any) -> None:
+        self.service = service
+        self.python_bin = self._detect_python_bin()
+        self.codex_run_meta: Optional[dict[str, object]] = None
+        self.codex_cli_version = ""
+        self.stop_requested = False
+        self.env = os.environ.copy()
+        self.env.setdefault("LANG", "C.UTF-8")
+        self.env.setdefault("LC_ALL", "C.UTF-8")
+        self.env.setdefault("PYTHONUTF8", "1")
+        self.env.setdefault("PYTHONIOENCODING", "UTF-8")
+        self.env["SONOLBOT_GUI_SESSION"] = "1" if self._has_gui_session() else "0"
+
+    def _detect_python_bin(self) -> str:
+        root = getattr(self.service, "root", None)
+        if isinstance(root, Path):
+            venv_py = root / ".venv" / "bin" / "python"
+            if venv_py.exists():
+                return str(venv_py)
+        return sys.executable
+
+    @staticmethod
+    def _has_gui_session() -> bool:
+        if os.name == "nt":
+            return True
+        return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+class DaemonServiceCoreMixin:
+    def _init_core_runtime(self, core_runtime: DaemonServiceCoreRuntime | None = None) -> None:
+        if core_runtime is None:
+            core_runtime = DaemonServiceCoreRuntime(self)
+        self._core_runtime_component = core_runtime
+
+    def _get_core_runtime(self) -> DaemonServiceCoreRuntime | None:
+        runtime = getattr(self, "_core_runtime_component", None)
+        if isinstance(runtime, DaemonServiceCoreRuntime):
+            return runtime
+        return None
+
+    @property
+    def python_bin(self) -> str:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return sys.executable
+        return runtime.python_bin
+
+    @python_bin.setter
+    def python_bin(self, value: str) -> None:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return
+        runtime.python_bin = str(value)
+
+    @property
+    def codex_run_meta(self) -> Optional[dict[str, object]]:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return None
+        return runtime.codex_run_meta
+
+    @codex_run_meta.setter
+    def codex_run_meta(self, value: Optional[dict[str, object]]) -> None:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return
+        runtime.codex_run_meta = value
+
+    @property
+    def codex_cli_version(self) -> str:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return ""
+        return runtime.codex_cli_version
+
+    @codex_cli_version.setter
+    def codex_cli_version(self, value: str) -> None:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return
+        runtime.codex_cli_version = value
+
+    @property
+    def stop_requested(self) -> bool:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return False
+        return bool(runtime.stop_requested)
+
+    @stop_requested.setter
+    def stop_requested(self, value: bool) -> None:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return
+        runtime.stop_requested = bool(value)
+
+    @property
+    def env(self) -> dict[str, str]:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return os.environ.copy()
+        return runtime.env
+
+    @env.setter
+    def env(self, value: dict[str, str]) -> None:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return
+        runtime.env = dict(value)

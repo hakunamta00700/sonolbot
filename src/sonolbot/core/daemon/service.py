@@ -1,8 +1,8 @@
 ﻿"Daemon service orchestration."
 from __future__ import annotations
-
-from sonolbot.core.daemon.runtime_shared import *
 from sonolbot.core.daemon import service_utils as _service_utils
+from sonolbot.core.daemon.runtime_shared import *
+from sonolbot.core.daemon.service_core import DaemonServiceCoreMixin, DaemonServiceCoreRuntime
 from sonolbot.core.daemon.service_config import DaemonServiceConfig
 from sonolbot.core.daemon.service_task import DaemonServiceTaskMixin, DaemonServiceTaskRuntime
 from sonolbot.core.daemon.service_app import DaemonServiceAppMixin, DaemonServiceAppRuntime
@@ -11,6 +11,7 @@ from sonolbot.core.daemon.service_rewriter import DaemonServiceRewriterMixin
 from sonolbot.core.daemon.service_telegram import DaemonServiceTelegramMixin, DaemonServiceTelegramRuntime
 
 class DaemonService(
+    DaemonServiceCoreMixin,
     DaemonServiceTaskMixin,
     DaemonServiceAppMixin,
     DaemonServiceLeaseMixin,
@@ -20,6 +21,7 @@ class DaemonService(
     def __init__(
         self,
         *,
+        core_runtime: DaemonServiceCoreRuntime | None = None,
         task_runtime: DaemonServiceTaskRuntime | None = None,
         app_runtime: DaemonServiceAppRuntime | None = None,
         lease_runtime: DaemonServiceLeaseRuntime | None = None,
@@ -29,16 +31,7 @@ class DaemonService(
         self.config, init_warnings = DaemonServiceConfig.from_env()
         for name, value in self.config.as_dict().items():
             setattr(self, name, value)
-        self.python_bin = self._detect_python_bin()
-        self.codex_run_meta: Optional[dict[str, object]] = None
-        self.stop_requested = False
-
-        self.env = os.environ.copy()
-        self.env.setdefault("LANG", "C.UTF-8")
-        self.env.setdefault("LC_ALL", "C.UTF-8")
-        self.env.setdefault("PYTHONUTF8", "1")
-        self.env.setdefault("PYTHONIOENCODING", "UTF-8")
-        self.env["SONOLBOT_GUI_SESSION"] = "1" if self._has_gui_session() else "0"
+        self._init_core_runtime(core_runtime)
         for message in init_warnings:
             self._log(f"WARN: {message}")
 
@@ -58,12 +51,6 @@ class DaemonService(
         self._init_rewriter_runtime(rewriter_runtime)
         self._cleanup_activity_logs()
         self._rotate_activity_log_if_needed(force=False)
-
-    def _detect_python_bin(self) -> str:
-        venv_py = self.root / ".venv" / "bin" / "python"
-        if venv_py.exists():
-            return str(venv_py)
-        return sys.executable
 
     def _daily_log_path(self) -> Path:
         return self.logs_dir / f"daemon-{datetime.now().strftime('%Y-%m-%d')}.log"
