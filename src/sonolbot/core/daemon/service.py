@@ -1921,36 +1921,37 @@ class DaemonService:
             "",
         ]
         for idx, row in enumerate(rows, start=1):
-            title = _service_utils.compact_prompt_text(
-                row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
-                max_len=44,
-            ) or "(제목 없음)"
-            subtitle = _service_utils.compact_prompt_text(
-                row.get("display_subtitle", "") or row.get("result_summary_short", "") or row.get("instruction_short", ""),
-                max_len=64,
+            lines.extend(
+                self._build_task_card_lines(
+                    idx,
+                    row,
+                    subtitle_max_len=64,
+                    include_blank_line=True,
+                )
             )
-            work_status_badge = self._render_user_work_status_badge(row.get("work_status", "") or row.get("status", ""))
-            recent_ts = _service_utils.compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
-            title_html = self._escape_telegram_html(title)
-            subtitle_html = self._escape_telegram_html(subtitle) if subtitle else "-"
-            work_html = self._escape_telegram_html(work_status_badge)
-            recent_html = self._escape_telegram_html(recent_ts)
-            lines.append(f"<b>{idx}. {title_html}</b>")
-            lines.append(f"<b>요약</b>: {subtitle_html}")
-            lines.append(f"<b>상태</b>: {work_html}")
-            lines.append(f"<b>최근</b>: <code>{recent_html}</code>")
-            lines.append("")
         return "\n".join(lines).strip()
 
-    def _render_task_item_card_text(self, idx: int, row: dict[str, Any]) -> str:
+    def _build_task_card_lines(
+        self,
+        idx: int,
+        row: dict[str, Any],
+        *,
+        subtitle_max_len: int = 64,
+        include_score: bool = False,
+        include_blank_line: bool = False,
+        subtitle_fallback_fields: tuple[str, ...] = ("display_subtitle", "result_summary_short", "instruction_short"),
+    ) -> list[str]:
         title = _service_utils.compact_prompt_text(
             row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
             max_len=44,
         ) or "(제목 없음)"
-        subtitle = _service_utils.compact_prompt_text(
-            row.get("display_subtitle", "") or row.get("result_summary_short", "") or row.get("instruction_short", ""),
-            max_len=64,
-        )
+        subtitle = ""
+        for field in subtitle_fallback_fields:
+            value = row.get(field, "")
+            raw_value = str(value).strip() if value is not None else ""
+            if raw_value:
+                subtitle = _service_utils.compact_prompt_text(raw_value, max_len=subtitle_max_len)
+                break
         work_status_badge = self._render_user_work_status_badge(row.get("work_status", "") or row.get("status", ""))
         recent_ts = _service_utils.compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
         title_html = self._escape_telegram_html(title)
@@ -1958,18 +1959,31 @@ class DaemonService:
         work_html = self._escape_telegram_html(work_status_badge)
         recent_html = self._escape_telegram_html(recent_ts)
         lines = [
-            f"<b>{int(idx)}. {title_html}</b>",
+            f"<b>{idx}. {title_html}</b>",
             f"<b>요약</b>: {subtitle_html}",
             f"<b>상태</b>: {work_html}",
             f"<b>최근</b>: <code>{recent_html}</code>",
         ]
-        try:
-            relevance_score = int(row.get("relevance_score", -1))
-        except Exception:
-            relevance_score = -1
-        if relevance_score >= 0:
-            lines.append(f"<b>연관도</b>: <code>{relevance_score}점</code>")
-        return "\n".join(lines).strip()
+        if include_score:
+            try:
+                relevance_score = int(row.get("relevance_score", -1))
+            except Exception:
+                relevance_score = -1
+            if relevance_score >= 0:
+                lines.append(f"<b>연관도</b>: <code>{int(relevance_score)}점</code>")
+        if include_blank_line:
+            lines.append("")
+        return lines
+
+    def _render_task_item_card_text(self, idx: int, row: dict[str, Any]) -> str:
+        return "\n".join(
+            self._build_task_card_lines(
+                int(idx),
+                row,
+                include_score=True,
+                include_blank_line=False,
+            )
+        ).strip()
 
     def _render_task_candidates_text(self, query: str, rows: list[dict[str, Any]]) -> str:
         query_html = self._escape_telegram_html(query)
@@ -1980,31 +1994,16 @@ class DaemonService:
             "",
         ]
         for idx, row in enumerate(rows, start=1):
-            title = _service_utils.compact_prompt_text(
-                row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
-                max_len=44,
-            ) or "(제목 없음)"
-            subtitle = _service_utils.compact_prompt_text(
-                row.get("display_subtitle", "") or row.get("result_summary_short", ""),
-                max_len=52,
+            lines.extend(
+                self._build_task_card_lines(
+                    idx,
+                    row,
+                    subtitle_max_len=52,
+                    include_score=True,
+                    include_blank_line=True,
+                    subtitle_fallback_fields=("display_subtitle", "result_summary_short"),
+                )
             )
-            work_status_badge = self._render_user_work_status_badge(row.get("work_status", "") or row.get("status", ""))
-            recent_ts = _service_utils.compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
-            try:
-                relevance_score = int(row.get("relevance_score", -1))
-            except Exception:
-                relevance_score = -1
-            title_html = self._escape_telegram_html(title)
-            subtitle_html = self._escape_telegram_html(subtitle) if subtitle else "-"
-            work_html = self._escape_telegram_html(work_status_badge)
-            recent_html = self._escape_telegram_html(recent_ts)
-            lines.append(f"<b>{idx}. {title_html}</b>")
-            lines.append(f"<b>요약</b>: {subtitle_html}")
-            lines.append(f"<b>상태</b>: {work_html}")
-            lines.append(f"<b>최근</b>: <code>{recent_html}</code>")
-            if relevance_score >= 0:
-                lines.append(f"<b>연관도</b>: <code>{int(relevance_score)}점</code>")
-            lines.append("")
         return "\n".join(lines).strip()
 
     def _task_row_recent_timestamp(self, row: dict[str, Any]) -> str:

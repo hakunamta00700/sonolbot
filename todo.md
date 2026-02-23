@@ -23,7 +23,7 @@ Rules
 
 ## 3) Phase 3: Interaction boundary cleanup (Priority 3)
 - [x] P3-1: Review large command handlers and extract any new helper candidates
-- [ ] P3-2: Move repeated task-card rendering blocks into dedicated helper(s)
+- [x] P3-2: Move repeated task-card rendering blocks into dedicated helper(s)
 - [x] P3-3: Run syntax check and commit
 
 ## 4) Phase 4: Risk sweep
