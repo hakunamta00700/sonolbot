@@ -17,7 +17,7 @@ class DaemonService(
     DaemonServiceRewriterMixin,
     DaemonServiceTelegramMixin,
 ):
-    def __init__(self) -> None:
+    def __init__(self, *, rewriter_runtime: DaemonServiceRewriterRuntime | None = None) -> None:
         self.config, init_warnings = DaemonServiceConfig.from_env()
         for name, value in self.config.as_dict().items():
             setattr(self, name, value)
@@ -46,17 +46,7 @@ class DaemonService(
         self._chat_lease_busy_logged_at: dict[int, float] = {}
         self.completed_message_ids_recent: dict[int, float] = {}
         self._completed_requeue_log_ts: dict[int, float] = {}
-        self.rewriter_proc: Optional[subprocess.Popen[str]] = None
-        self.rewriter_json_send_lock = threading.Lock()
-        self.rewriter_req_lock = threading.Lock()
-        self.rewriter_pending_responses: dict[int, queue.Queue[dict[str, Any]]] = {}
-        self.rewriter_event_queue: queue.Queue[dict[str, Any]] = queue.Queue()
-        self.rewriter_next_request_id = 1
-        self.rewriter_last_restart_try_epoch = 0.0
-        self.rewriter_chat_threads: dict[int, str] = {}
-        self.rewriter_turn_results: dict[str, dict[str, Any]] = {}
-        self._agent_rewriter_lock_fd: int | None = None
-        self._agent_rewriter_lock_busy_logged_at = 0.0
+        self._rewriter_runtime_component = None
 
         self.env = os.environ.copy()
         self.env.setdefault("LANG", "C.UTF-8")
@@ -76,8 +66,8 @@ class DaemonService(
         self.chat_locks_dir.mkdir(parents=True, exist_ok=True)
         self.agent_rewriter_workspace.mkdir(parents=True, exist_ok=True)
         self._harden_sensitive_permissions()
+        self._init_rewriter_runtime(rewriter_runtime)
         self._load_app_server_state()
-        self._load_agent_rewriter_state()
         self._cleanup_activity_logs()
         self._rotate_activity_log_if_needed(force=False)
 

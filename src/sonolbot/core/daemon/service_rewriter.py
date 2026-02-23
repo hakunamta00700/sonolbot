@@ -1,9 +1,335 @@
 from __future__ import annotations
 
 from sonolbot.core.daemon.runtime_shared import *
+from sonolbot.core.daemon import service_utils as _service_utils
+
+
+class DaemonServiceRewriterRuntime:
+    def __init__(self, service: Any) -> None:
+        self.service = service
+        self.rewriter_proc: subprocess.Popen[str] | None = None
+        self.rewriter_json_send_lock = threading.Lock()
+        self.rewriter_req_lock = threading.Lock()
+        self.rewriter_pending_responses: dict[int, queue.Queue[dict[str, Any]] ] = {}
+        self.rewriter_event_queue: queue.Queue[dict[str, Any]] = queue.Queue()
+        self.rewriter_next_request_id = 1
+        self.rewriter_turn_results: dict[str, dict[str, Any]] = {}
+        self.rewriter_chat_threads: dict[int, str] = {}
+        self.rewriter_last_restart_try_epoch = 0.0
+        self._lock: _ProcessFileLock | None = None
+        self._lock_busy_logged_at = 0.0
+
+    @property
+    def _owner(self) -> Any:
+        return self.service
+
+    def load_state(self) -> None:
+        payload = _service_utils.read_json_dict(self._owner.agent_rewriter_state_file)
+        if not isinstance(payload, dict):
+            return
+
+        raw_threads = payload.get("chat_threads")
+        if isinstance(raw_threads, dict):
+            threads: dict[int, str] = {}
+            for raw_chat_id, raw_thread in raw_threads.items():
+                try:
+                    chat_id = int(raw_chat_id)
+                except Exception:
+                    continue
+                thread_id = str(raw_thread or "").strip()
+                if thread_id:
+                    threads[chat_id] = thread_id
+            self.rewriter_chat_threads = threads
+
+        next_request_id = payload.get("next_request_id")
+        if isinstance(next_request_id, int):
+            self.rewriter_next_request_id = max(1, next_request_id)
+
+    def save_state(self) -> None:
+        payload: dict[str, Any] = {
+            "version": 1,
+            "saved_at": time.time(),
+            "next_request_id": self.rewriter_next_request_id,
+            "chat_threads": {
+                str(chat_id): thread_id for chat_id, thread_id in self.rewriter_chat_threads.items()
+            },
+        }
+        _service_utils.write_json_dict_atomic(self._owner.agent_rewriter_state_file, payload)
+
+    def read_pid_file(self, path: Path) -> int:
+        if not path.exists():
+            return 0
+        try:
+            return int(path.read_text(encoding="utf-8").strip())
+        except Exception:
+            return 0
+
+    def is_codex_app_server_pid(self, pid: int) -> bool:
+        try:
+            pid_value = int(pid)
+        except Exception:
+            return False
+        if not _is_pid_alive(pid_value):
+            return False
+        if os.name == "nt":
+            return True
+        try:
+            cmdline = Path(f"/proc/{pid_value}/cmdline").read_text(errors="ignore")
+            return ("codex" in cmdline.lower()) and ("app-server" in cmdline.lower())
+        except Exception:
+            return True
+
+    def acquire_lock(self) -> bool:
+        timeout_sec = max(0.0, float(getattr(self._owner, "file_lock_wait_timeout_sec", 0.0)))
+        deadline = time.time() + timeout_sec
+        last_warned = 0.0
+        while True:
+            try:
+                if self._lock is None:
+                    self._lock = _ProcessFileLock(
+                        self._owner.agent_rewriter_lock_file,
+                        self._owner.agent_rewriter_pid_file,
+                        "agent-rewriter",
+                    )
+                self._lock.acquire()
+                self._lock_busy_logged_at = 0.0
+                return True
+            except Exception as exc:
+                self._lock = None
+                if time.time() >= deadline:
+                    if time.time() - self._lock_busy_logged_at >= 1.0:
+                        try:
+                            self._owner._log(f"WARN: failed to acquire agent-rewriter lock: {exc}")
+                        except Exception:
+                            pass
+                        self._lock_busy_logged_at = time.time()
+                    return False
+                if time.time() - last_warned >= 1.0:
+                    try:
+                        self._owner._log(f"WARN: waiting for agent-rewriter lock: {exc}")
+                    except Exception:
+                        pass
+                    last_warned = time.time()
+                time.sleep(min(0.2, max(0.05, timeout_sec / 8.0)))
+
+    def release_lock(self) -> None:
+        if self._lock is None:
+            return
+        try:
+            self._lock.release()
+        finally:
+            self._lock = None
+
+    def write_log(self, prefix: str, line: str) -> None:
+        append_timestamped_log_line(self._owner.agent_rewriter_log_file, prefix, line)
+
+    def build_codex_app_server_cmd(self, role: str = "app-server") -> list[str]:
+        listen = str(getattr(self._owner, "app_server_listen", "stdio://")).strip()
+        if not listen:
+            listen = "stdio://"
+        return ["codex", "app-server", "--listen", listen]
 
 
 class DaemonServiceRewriterMixin:
+
+    def _get_rewriter_runtime(self) -> DaemonServiceRewriterRuntime | None:
+        runtime = getattr(self, "_rewriter_runtime_component", None)
+        if isinstance(runtime, DaemonServiceRewriterRuntime):
+            return runtime
+        return None
+
+    def _init_rewriter_runtime(self, runtime: DaemonServiceRewriterRuntime | None = None) -> None:
+        if runtime is None:
+            runtime = DaemonServiceRewriterRuntime(self)
+        self._rewriter_runtime_component = runtime
+        runtime.load_state()
+
+    @property
+    def rewriter_proc(self) -> subprocess.Popen[str] | None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return None
+        return runtime.rewriter_proc
+
+    @rewriter_proc.setter
+    def rewriter_proc(self, value: subprocess.Popen[str] | None) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.rewriter_proc = value
+
+    @property
+    def rewriter_json_send_lock(self) -> threading.Lock:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return threading.Lock()
+        return runtime.rewriter_json_send_lock
+
+    @rewriter_json_send_lock.setter
+    def rewriter_json_send_lock(self, value: threading.Lock) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.rewriter_json_send_lock = value
+
+    @property
+    def rewriter_req_lock(self) -> threading.Lock:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return threading.Lock()
+        return runtime.rewriter_req_lock
+
+    @rewriter_req_lock.setter
+    def rewriter_req_lock(self, value: threading.Lock) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.rewriter_req_lock = value
+
+    @property
+    def rewriter_pending_responses(self) -> dict[int, queue.Queue[dict[str, Any]]]:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return {}
+        return runtime.rewriter_pending_responses
+
+    @rewriter_pending_responses.setter
+    def rewriter_pending_responses(self, value: dict[int, queue.Queue[dict[str, Any]]]) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.rewriter_pending_responses = value
+
+    @property
+    def rewriter_event_queue(self) -> queue.Queue[dict[str, Any]]:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return queue.Queue()
+        return runtime.rewriter_event_queue
+
+    @rewriter_event_queue.setter
+    def rewriter_event_queue(self, value: queue.Queue[dict[str, Any]]) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.rewriter_event_queue = value
+
+    @property
+    def rewriter_next_request_id(self) -> int:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return 1
+        return runtime.rewriter_next_request_id
+
+    @rewriter_next_request_id.setter
+    def rewriter_next_request_id(self, value: int) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.rewriter_next_request_id = value
+
+    @property
+    def rewriter_turn_results(self) -> dict[str, dict[str, Any]]:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return {}
+        return runtime.rewriter_turn_results
+
+    @rewriter_turn_results.setter
+    def rewriter_turn_results(self, value: dict[str, dict[str, Any]]) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.rewriter_turn_results = value
+
+    @property
+    def rewriter_chat_threads(self) -> dict[int, str]:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return {}
+        return runtime.rewriter_chat_threads
+
+    @rewriter_chat_threads.setter
+    def rewriter_chat_threads(self, value: dict[int, str]) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.rewriter_chat_threads = value
+
+    @property
+    def rewriter_last_restart_try_epoch(self) -> float:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return 0.0
+        return runtime.rewriter_last_restart_try_epoch
+
+    @rewriter_last_restart_try_epoch.setter
+    def rewriter_last_restart_try_epoch(self, value: float) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.rewriter_last_restart_try_epoch = value
+
+    def _load_agent_rewriter_state(self) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.load_state()
+
+    def _save_agent_rewriter_state(self) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.save_state()
+
+    def _read_pid_file(self, path: Path) -> int:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return 0
+        return runtime.read_pid_file(path)
+
+    def _is_codex_app_server_pid(self, pid: int) -> bool:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return _is_pid_alive(int(pid))
+        return runtime.is_codex_app_server_pid(pid)
+
+    def _acquire_agent_rewriter_lock(self) -> bool:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return False
+        return runtime.acquire_lock()
+
+    def _release_agent_rewriter_lock(self) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.release_lock()
+
+    def _build_codex_app_server_cmd(self, role: str = "app-server") -> list[str]:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            listen = str(getattr(self, "app_server_listen", "stdio://")).strip() or "stdio://"
+            return ["codex", "app-server", "--listen", listen]
+        return runtime.build_codex_app_server_cmd(role=role)
+
+    def _write_agent_rewriter_log(self, prefix: str, line: str) -> None:
+        runtime = self._get_rewriter_runtime()
+        if runtime is None:
+            return
+        runtime.write_log(prefix, line)
+
+    def _write_app_server_log(self, prefix: str, line: str) -> None:
+        try:
+            append_timestamped_log_line(self.app_server_log_file, prefix, line)
+        except Exception:
+            pass
+
+    def _secure_file(self, path: Path) -> None:
+        try:
+            path.chmod(SECURE_FILE_MODE)
+        except Exception:
+            pass
 
     def _rewriter_is_running(self) -> bool:
         return self.rewriter_proc is not None and self.rewriter_proc.poll() is None

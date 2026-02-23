@@ -1,52 +1,62 @@
-﻿# DaemonService refactor plan (v1)
+﻿# daemon/service.py 由ы뙥?좊쭅 怨꾪쉷
 
-목표: `src/sonolbot/core/daemon/service.py`의 prefix별 책임을 외부 모듈로 분리해 가독성과 테스트 가능성을 높이고, 앞으로 기능 단위로 injection(믹신 또는 외부 클래스) 형태로 확장할 수 있게 정리한다.
+紐⑺몴: `DaemonService`??`rewriter_*` 梨낆엫???쇳빀 ?대옒???대? 硫ㅻ쾭 吏묓빀?먯꽌 `Runtime` ?대옒?ㅻ줈 遺꾨━?섍퀬, `DaemonService`媛 二쇱엯 媛?ν븳 ?뺥깭濡??숈옉?섍쾶 ?뺣━.
 
-원칙
-- 한 번에 한 개의 기능 덩어리만 이동
-- 각 단계는 `작업 -> 작업완료 -> 테스트 -> 체크 -> 커밋` 순서로 진행
-- 기존 동작 호환성 우선
-- 큰 이동 이전에 `todo.md`에서 다음 단계 상태를 바로 갱신
+洹쒖튃
+- ?곗꽑?쒖쐞 ?쒖꽌濡?泥섎━?쒕떎.
+- 媛??⑥쐞??`?묒뾽 -> ?묒뾽?꾨즺 -> ?뚯뒪??-> 泥댄겕 -> 而ㅻ컠` ?쒖꽌濡?異붿쟻?쒕떎.
+- `daemon` ?숈옉 ?명솚?깆쓣 ?곗꽑?쒕떎.
 
-## 1) 우선순위 1: Telegram 기능 분리 (`_telegram_*`)
-- [x] 작업: `src/sonolbot/core/daemon/service_telegram.py`에 Telegram mixin 생성
-- [x] 작업: `DaemonService`가 `DaemonServiceTelegramMixin`을 상속하도록 변경
-- [x] 작업완료: `_normalize_telegram_parse_mode`, `_resolve_telegram_parse_mode`, `_sanitize_telegram_text_for_parse_mode`, `_get_telegram_runtime_skill`, `_escape_telegram_html`, `_telegram_get_me_name`, `_telegram_get_my_name`, `_telegram_set_my_name`, `_telegram_send_text_once`, `_telegram_send_text`, `_telegram_edit_message_text`, `_finalize_control_message`, `_finalize_control_message_if_sent`, `_send_control_reply`를 mixin으로 이동
-- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
-- [x] 체크: `rg -n "_normalize_telegram_parse_mode|_send_control_reply|_telegram_edit_message_text|class DaemonService" src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_telegram.py` 결과로 이전 메서드가 이동되었는지 확인
-- [x] 커밋: `refactor: extract telegram helpers into mixin`
+## ?곗꽑?쒖쐞 1: Rewriter Runtime DI 湲곕컲 遺꾨━ (?ㅽ뻾)
+- [x] ?묒뾽: `src/sonolbot/core/daemon/service_rewriter.py`??`DaemonServiceRewriterRuntime` ?대옒??異붽?
+- [x] ?묒뾽: ?고??꾩씠 蹂댁쑀??`rewriter_*` ?곹깭瑜?`DaemonServiceRewriterRuntime`濡??대룞 (`proc/lock/request queue/log/threads/state`)
+- [x] ?묒뾽: `_load_agent_rewriter_state`, `_save_agent_rewriter_state`瑜??고????곹깭 濡쒕뵫/??μ쑝濡??꾩엫
+- [x] ?묒뾽: `_read_pid_file`, `_is_codex_app_server_pid`, `_acquire_agent_rewriter_lock`, `_release_agent_rewriter_lock`, `_build_codex_app_server_cmd`, `_write_agent_rewriter_log`, `_secure_file` ?꾩엫 ?명꽣?섏씠??異붽?
+- [x] ?묒뾽?꾨즺: `DaemonServiceRewriterMixin`??`rewriter_*` ?띿꽦 ?꾨줈?쇳떚 ?꾩엫???먯뼱 湲곗〈 `_rewriter_*` 濡쒖쭅 蹂???놁씠 ?고????곹깭 ?묎렐
+- [x] ?뚯뒪?? `python -m py_compile src/sonolbot/core/daemon/service_rewriter.py src/sonolbot/core/daemon/service.py`
+- [x] 泥댄겕: `rg -n "self\\._rewriter_runtime_component|self\\.rewriter_"`濡?`service_rewriter.py`?먯꽌 ?꾩엫 寃쎈줈媛 ?쇨??섎뒗吏 ?뺤씤
+- [ ] 而ㅻ컠: `refactor: split rewriter runtime state and inject via host service`
 
-## 2) 우선순위 2: Task 기능 분리 (`_task_*`)
-- [x] 작업: Task 관련 메서드를 `service_task.py`로 이동
-- [x] 작업완료: `_get_task_skill`은 Task mixin으로 이동 (`_run_task_commands_json` 포함), Task 도메인 메서드 30+개 이관
-- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py`
-- [x] 체크: `rg -n "^    def .*task" src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py` 및 `_lookup_mapped_thread_id` 등 task 도메인 잔존 점검
-- [x] 커밋: `refactor: extract task domain methods into mixin`
+## ?곗꽑?쒖쐞 2: DaemonService ?앹꽦??二쇱엯 ?ъ씤???뺣━
+- [x] ?묒꾩? `src/sonolbot/core/daemon/service.py` ?앹꽦?먯꿊 ?꾩씠?`rewriter_runtime`)
+- [x] ?묒뾽?꾨즺: `_init_rewriter_runtime(rewriter_runtime)`瑜??듯빐 湲곕낯 ?고???二쇱엯 ?고???紐⑤몢 ?섏슜
+- [x] ?뚯뒪?? `python -m py_compile src/sonolbot/core/daemon/service.py`
+- [ ] 泥댄겕: `DaemonService()` 湲곕낯 ?ㅽ뻾怨?`DaemonService(rewriter_runtime=...)` ?쒓렇?덉쿂 ?곹뼢 寃??- [ ] 而ㅻ컠: `refactor: inject rewriter runtime into DaemonService`
 
-## 3) 우선순위 3: App 서버 기능 분리 (`_app_*`)
-- [x] 작업: App 서버 IPC/스레드/루프/세션 메서드를 `service_app.py`로 이동
-- [x] 작업완료: `DaemonService`의 책임도메인 분리 범위 정리
-- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service_app.py`
-- [x] 체크: `rg -n "^    def _app_"`로 서비스 본체에서 `_app_*` 정의 제거 및 mixin에 이전 확인
- - [x] 커밋: `refactor: extract app server methods into mixin`
+## ?곗꽑?쒖쐞 3: ?ㅼ쓬 ?④퀎 以鍮?(App/lock/濡쒓렇 ?ы띁 ?뺣━)
+- [ ] ?묒뾽: `_write_app_server_log`, `_secure_file` ??怨듭슜 ?ы띁???뚯쑀沅?遺꾨━ ?꾨낫 ?꾩텧
+- [ ] ?묒뾽?꾨즺: app ?쒕쾭 helper 誘명빐寃???ぉ 紐⑸줉 ?뺣━
+- [ ] ?뚯뒪?? ??由щ씪?댄꽣 ?몃뱾留?寃쎈줈???꾩슂???ы띁 ?꾨씫 ?뺤씤
+- [ ] 泥댄겕: ?ㅼ쓬 ?④퀎 泥댄겕由ъ뒪???묒꽦
+- [ ] 而ㅻ컠: `chore: prepare app helper migration follow-up`
 
-## 4) 우선순위 4: 채팅 릴리스/락 분리 (`_chat_lease_*`)
-- [x] 작업: chat lease 전용 로직을 별도 mixin으로 이동
-- [x] 작업완료: `_chat_lease_*`와 릴리스/터치/상태 계산 책임 분리
-- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service_app.py src/sonolbot/core/daemon/service_lease.py`
-- [x] 체크: `_chat_lease_*` 정의/호출 관계 및 상태 경로 사용 일치 확인
-- [x] 커밋: 작업 완료 후 순차 커밋
+﻿# daemon/service.py 리팩토링 TODO (DI 재설계)
 
-## 5) 우선순위 5: Rewriter 기능 분리 (`_rewriter_*`)
-- [x] 작업: Agent rewriter 관련 메서드 분리
-- [x] 작업완료: `_rewriter_*` 동작을 외부 클래스 또는 mixin으로 위임
-- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service_app.py src/sonolbot/core/daemon/service_lease.py src/sonolbot/core/daemon/service_rewriter.py`
-- [x] 체크: `rg -n "^    def _rewriter_"` 로 서비스 본체/재포지션 확인 및 기존 호출부 동작 확인
-- [x] 커밋: 작업 완료 후 순차 커밋
+## 규칙
+- 한 번에 한 개 작업씩 진행: `작업 -> 작업완료 -> 테스트 -> 체크 -> 커밋`
+- 각 단계는 우선순위 기준으로 진행
+- 가능한 기존 동작 호환 유지
 
-## 6) 우선순위 6: 기타 공통 헬퍼 정리
-- [x] 작업: `app-server` 분리 밖 잔존 보조 메서드(예: rewriter helper) 정리
-- [x] 작업완료: `DaemonServiceRewriterMixin`으로 rewriter 보조 책임 통합
-- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service_app.py src/sonolbot/core/daemon/service_lease.py src/sonolbot/core/daemon/service_rewriter.py`
-- [x] 체크: 전체 파일에서 prefix 기반 분리 이력 요약 및 `_rewriter_*`/재작성 보조 메서드의 mixin 적치 확인
-- [x] 커밋: 마무리 정리 완료 후 커밋
+## 우선순위 1: Rewriter Runtime DI 분리
+- [x] 작업: `src/sonolbot/core/daemon/service_rewriter.py`에 `DaemonServiceRewriterRuntime` 생성
+- [x] 작업: `_rewriter_*` 상태값을 런타임으로 이동 (`proc / lock / queue / state / log / thread`)
+- [x] 작업: `_load_agent_rewriter_state`, `_save_agent_rewriter_state` 위임
+- [x] 작업: `_read_pid_file`, `_is_codex_app_server_pid`, `_acquire_agent_rewriter_lock`, `_release_agent_rewriter_lock`, `_build_codex_app_server_cmd`, `_write_agent_rewriter_log`, `_secure_file` 등 런타임 위임
+- [x] 작업완료: `DaemonServiceRewriterMixin`에서 `rewriter_*` 접근을 runtime 프로퍼티로 위임 정리
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_rewriter.py src/sonolbot/core/daemon/service.py`
+- [x] 체크: `rg -n "self\\._rewriter_runtime_component|self\\.rewriter_" src/sonolbot/core/daemon/service_rewriter.py`
+- [ ] 커밋: `refactor: split rewriter runtime state and inject via host service`
+
+## 우선순위 2: DaemonService 생성자 DI
+- [x] 작업: `src/sonolbot/core/daemon/service.py` 생성자에 `rewriter_runtime` 주입 인자 추가
+- [x] 작업완료: `_init_rewriter_runtime(rewriter_runtime)` 호출로 기본/주입 런타임 처리
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py`
+- [x] 체크: `DaemonService` 시그니처 및 런타임 주입 초기화 호출 확인
+- [ ] 커밋: `refactor: inject rewriter runtime into DaemonService`
+
+## 우선순위 3: App/락/로그 헬퍼 정리(후속)
+- [ ] 작업: App/lock/로그 헬퍼 소유권 분리 대상 식별
+- [ ] 작업완료: `daemon/service_app.py` 계열로 이동 후보 정리
+- [ ] 테스트: 대상 파일 컴파일 및 참조 점검
+- [ ] 체크: `service.py`에서 미완료 `_app_*` 책임 정리
+- [ ] 커밋: `chore: split app-related helpers`
