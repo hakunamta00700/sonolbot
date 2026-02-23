@@ -31,3 +31,12 @@
 - [x] 체크: `rg -n "self\._app_runtime_component|self\.app_" src/sonolbot/core/daemon/service_app.py src/sonolbot/core/daemon/service.py`
 - [x] 커밋: `refactor: inject app runtime into DaemonService`
 
+
+## 우선순위 4: DI 테스트 고정
+- [x] 작업: `tests/test_service_app_runtime_di.py` 추가 (app 런타임 주입/상태/영속화 위임)
+- [x] 작업완료: `DaemonServiceAppMixin`에서 `app_runtime` 주입 및 위임 동작 단위 검증
+- [x] 테스트: `python -m unittest tests/test_service_app_runtime_di.py` (의존성 미설치 환경에서는 스킵 처리)
+- [x] 체크: `rg -n "_init_app_runtime|_save_app_server_state|_set_runtime_env" tests/test_service_app_runtime_di.py`; 테스트는 현재 `dotenv` 부재로 import 스킵 상태에서 1건 skipped
+- [x] 커밋: `test: add daemon app runtime injection unit tests`
+
+
