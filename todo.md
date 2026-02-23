@@ -36,4 +36,4 @@ Rules
   - Replace manual dedupe loop when combining `queued_messages` + temp seed messages.
 - [x] R4-3: Apply helper in `_app_process_cycle` queued merge branches
   - Replace manual dedupe loops in active-turn and initial turn batching paths.
-- [ ] R4-4: Run syntax check and commit.
+- [x] R4-4: Run syntax check and commit.
