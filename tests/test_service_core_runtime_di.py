@@ -89,17 +89,40 @@ else:
                     fake_bin = root / ".venv" / "Scripts"
                     fake_bin.mkdir(parents=True, exist_ok=True)
                     (fake_bin / "python.exe").write_text("", encoding="utf-8")
+                    (fake_bin / "python3.exe").write_text("", encoding="utf-8")
                     expected_python = str(fake_bin / "python.exe")
                 else:
                     fake_bin = root / ".venv" / "bin"
                     fake_bin.mkdir(parents=True, exist_ok=True)
                     (fake_bin / "python").write_text("", encoding="utf-8")
+                    (fake_bin / "python3").write_text("", encoding="utf-8")
                     expected_python = str(fake_bin / "python")
 
                 service = _FakeServiceForCoreRuntime(root)
 
                 service._init_core_runtime()
                 self.assertEqual(service.python_bin, expected_python)
+
+        def test_init_core_runtime_checks_venv_python_order(self) -> None:
+            with tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                if os.name == "nt":
+                    scripts_dir = root / ".venv" / "Scripts"
+                    scripts_dir.mkdir(parents=True, exist_ok=True)
+                    (scripts_dir / "python3.exe").write_text("", encoding="utf-8")
+                    (root / ".venv" / "bin" / "python").parent.mkdir(parents=True, exist_ok=True)
+                    expected = str(scripts_dir / "python3.exe")
+                else:
+                    primary = root / ".venv" / "bin" / "python3"
+                    fallback = root / ".venv" / "bin" / "python"
+                    primary.parent.mkdir(parents=True, exist_ok=True)
+                    fallback.write_text("", encoding="utf-8")
+                    primary.write_text("", encoding="utf-8")
+                    expected = str(primary)
+
+                service = _FakeServiceForCoreRuntime(root)
+                service._init_core_runtime()
+                self.assertEqual(service.python_bin, expected)
 
         def test_init_core_runtime_builds_env_default_gui_session_marker(self) -> None:
             service = _FakeServiceForCoreRuntime(Path.cwd())

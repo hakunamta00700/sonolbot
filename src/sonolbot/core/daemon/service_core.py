@@ -48,9 +48,10 @@ class DaemonServiceCoreRuntime:
         return sys.executable
 
     def _candidate_venv_python_paths(self, root: Path) -> list[Path]:
-        candidates: list[Path] = [root / ".venv" / "bin" / "python"]
+        candidates: list[Path] = [root / ".venv" / "bin" / "python", root / ".venv" / "bin" / "python3"]
         if os.name == "nt":
             candidates.insert(0, root / ".venv" / "Scripts" / "python.exe")
+            candidates.insert(1, root / ".venv" / "Scripts" / "python3.exe")
         return candidates
 
     def _has_gui_session(self, env: dict[str, str] | None = None) -> bool:

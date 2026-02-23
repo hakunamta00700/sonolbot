@@ -113,3 +113,11 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py` (실행 완료)
 - [x] 체크: `rg -n "core_env_policy|core_runtime, env_policy" src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py`
 - [x] 커밋: `refactor(core): add core_env_policy to service ctor`
+
+## 우선순위 15: Core 런타임 venv 후보 경로 추가
+- [x] 작업: `DaemonServiceCoreRuntime._candidate_venv_python_paths`에 `python3`, `python3.exe` 후보 추가
+- [x] 테스트: `test_init_core_runtime_prefers_workspace_venv_python`에서 다중 후보 생성해 기본 우선순위 유지 검증 유지
+- [x] 테스트: `test_init_core_runtime_checks_venv_python_order` 추가 (주요 후보 미존재 시 보조 후보 선택)
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
+- [x] 체크: `rg -n "python3|python3.exe|_candidate_venv_python_paths|test_init_core_runtime_checks_venv_python_order" src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py`
+- [x] 커밋: `refactor(core): extend venv python candidates`
