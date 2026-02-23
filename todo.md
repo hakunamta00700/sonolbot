@@ -254,3 +254,11 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_rewriter.py tests/test_service_core_runtime_di.py tests/test_service_task_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py tests/test_service_task_runtime_di.py`
 - [x] 체크: `rg -n \"rewriter_runtime must be DaemonServiceRewriterRuntime|test_init_core_runtime_rejects_invalid_runtime|test_init_task_runtime_rejects_invalid_runtime|_init_rewriter_runtime\" src/sonolbot/core/daemon/service_rewriter.py tests/test_service_core_runtime_di.py tests/test_service_task_runtime_di.py`
 - [x] 커밋: `test: add runtime injection type guard checks for core/task/rewriter`
+
+## 우선순위 34: rewriter 런타임 타입 가드 테스트 분리
+- [x] 작업: `tests/test_service_rewriter_runtime_di.py` 추가
+- [x] 작업: `test_init_rewriter_runtime_rejects_invalid_runtime` 타입 예외 메시지 정합성 검증
+- [x] 작업: `test_injected_runtime_instance_is_used`로 런타임 인스턴스 바인딩 검증
+- [x] 테스트: `python -m py_compile tests/test_service_rewriter_runtime_di.py src/sonolbot/core/daemon/service_rewriter.py && python -m unittest tests/test_service_rewriter_runtime_di.py`
+- [x] 체크: `rg -n \"rewriter_runtime must be DaemonServiceRewriterRuntime|_init_rewriter_runtime_rejects_invalid_runtime|_get_rewriter_runtime\" tests/test_service_rewriter_runtime_di.py src/sonolbot/core/daemon/service_rewriter.py`
+- [x] 커밋: `test: add unit coverage for rewriter runtime init guard and delegation`

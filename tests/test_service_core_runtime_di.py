@@ -235,7 +235,7 @@ else:
 
         def test_init_core_runtime_rejects_invalid_runtime(self) -> None:
             service = _FakeServiceForCoreRuntime(Path.cwd())
-            with self.assertRaises(TypeError):
+            with self.assertRaisesRegex(TypeError, "core_runtime must be DaemonServiceCoreRuntime"):
                 service._init_core_runtime(core_runtime=object())  # type: ignore[arg-type]
 
         def test_init_core_runtime_with_invalid_policies_raises(self) -> None:

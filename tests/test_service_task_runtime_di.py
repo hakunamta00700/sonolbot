@@ -86,7 +86,7 @@ else:
 
         def test_init_task_runtime_rejects_invalid_runtime(self) -> None:
             service = _FakeServiceForTaskRuntime()
-            with self.assertRaises(TypeError):
+            with self.assertRaisesRegex(TypeError, "task_runtime must be DaemonServiceTaskRuntime"):
                 service._init_task_runtime(task_runtime=object())  # type: ignore[arg-type]
 
         def test_task_skill_is_cached_once(self) -> None:
