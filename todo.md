@@ -96,3 +96,12 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
 - [x] 체크: `rg -n "_build_default_env|_candidate_venv_python_paths|_has_gui_session\\(" src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py`
 - [x] 커밋: `refactor(core): isolate gui session env and venv candidate builder`
+
+## 우선순위 13: Core 런타임 env 정책 DI 주입
+- [x] 작업: `DaemonServiceCoreEnvPolicy` 추가 및 `DaemonServiceCoreRuntime` 기본 env 생성을 정책 객체로 위임
+- [x] 작업: `DaemonServiceCoreRuntime` 생성자에 `env_policy` 의존성 주입 파라미터 추가
+- [x] 테스트: `tests/test_service_core_runtime_di.py`에서 정책 주입 시 `SONOLBOT_GUI_SESSION` 오버라이드 검증 테스트 추가
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py`
+- [x] 테스트: `python -m unittest tests/test_service_core_runtime_di.py`
+- [x] 체크: `rg -n "DaemonServiceCoreEnvPolicy|env_policy|_import_service_core|test_injected_env_policy_overrides_default_env" src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py`
+- [x] 커밋: `refactor(core): inject env policy for runtime defaults`

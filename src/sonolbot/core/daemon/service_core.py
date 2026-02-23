@@ -8,23 +8,34 @@ from typing import Any, Optional
 from sonolbot.core.daemon.runtime_shared import *
 
 
+class DaemonServiceCoreEnvPolicy:
+    def build_default_env(self, base_env: dict[str, str] | None = None) -> dict[str, str]:
+        env = dict(base_env or os.environ)
+        env.setdefault("LANG", "C.UTF-8")
+        env.setdefault("LC_ALL", "C.UTF-8")
+        env.setdefault("PYTHONUTF8", "1")
+        env.setdefault("PYTHONIOENCODING", "UTF-8")
+        env["SONOLBOT_GUI_SESSION"] = "1" if self.has_gui_session(env) else "0"
+        return env
+
+    def has_gui_session(self, env: dict[str, str]) -> bool:
+        if os.name == "nt":
+            return True
+        return bool(env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
+
+
 class DaemonServiceCoreRuntime:
-    def __init__(self, service: Any) -> None:
+    def __init__(self, service: Any, env_policy: DaemonServiceCoreEnvPolicy | None = None) -> None:
         self.service = service
+        self.env_policy = env_policy or DaemonServiceCoreEnvPolicy()
         self.python_bin = self._detect_python_bin()
         self.codex_run_meta: Optional[dict[str, object]] = None
         self.codex_cli_version = ""
         self.stop_requested = False
         self.env = self._build_default_env()
-        self.env["SONOLBOT_GUI_SESSION"] = "1" if self._has_gui_session(self.env) else "0"
 
     def _build_default_env(self) -> dict[str, str]:
-        env = os.environ.copy()
-        env.setdefault("LANG", "C.UTF-8")
-        env.setdefault("LC_ALL", "C.UTF-8")
-        env.setdefault("PYTHONUTF8", "1")
-        env.setdefault("PYTHONIOENCODING", "UTF-8")
-        return env
+        return self.env_policy.build_default_env()
 
     def _detect_python_bin(self) -> str:
         root = getattr(self.service, "root", None)
@@ -42,13 +53,9 @@ class DaemonServiceCoreRuntime:
             candidates.insert(0, root / ".venv" / "Scripts" / "python.exe")
         return candidates
 
-    @staticmethod
-    def _has_gui_session(env: dict[str, str] | None = None) -> bool:
-        if env is None:
-            env = dict(os.environ)
-        if os.name == "nt":
-            return True
-        return bool(env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
+    def _has_gui_session(self, env: dict[str, str] | None = None) -> bool:
+        target = dict(self.env) if env is None else env
+        return self.env_policy.has_gui_session(target)
 
 
 class DaemonServiceCoreMixin:

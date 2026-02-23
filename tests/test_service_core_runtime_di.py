@@ -29,24 +29,24 @@ def _ensure_fake_dotenv() -> None:
 
 def _import_service_core():
     try:
-        from sonolbot.core.daemon.service_core import DaemonServiceCoreMixin, DaemonServiceCoreRuntime
+        from sonolbot.core.daemon.service_core import DaemonServiceCoreEnvPolicy, DaemonServiceCoreMixin, DaemonServiceCoreRuntime
 
-        return DaemonServiceCoreMixin, DaemonServiceCoreRuntime, None
+        return DaemonServiceCoreMixin, DaemonServiceCoreRuntime, DaemonServiceCoreEnvPolicy, None
     except ModuleNotFoundError as exc:
         if "dotenv" not in str(exc):
-            return None, None, exc
+            return None, None, None, exc
         _ensure_fake_dotenv()
         try:
-            from sonolbot.core.daemon.service_core import DaemonServiceCoreMixin, DaemonServiceCoreRuntime
+            from sonolbot.core.daemon.service_core import DaemonServiceCoreMixin, DaemonServiceCoreRuntime, DaemonServiceCoreEnvPolicy
 
-            return DaemonServiceCoreMixin, DaemonServiceCoreRuntime, None
+            return DaemonServiceCoreMixin, DaemonServiceCoreRuntime, DaemonServiceCoreEnvPolicy, None
         except Exception as inner_exc:  # pragma: no cover
-            return None, None, inner_exc
+            return None, None, None, inner_exc
     except Exception as exc:  # pragma: no cover
-        return None, None, exc
+        return None, None, None, exc
 
 
-DaemonServiceCoreMixin, DaemonServiceCoreRuntime, _IMPORT_ERROR = _import_service_core()
+DaemonServiceCoreMixin, DaemonServiceCoreRuntime, DaemonServiceCoreEnvPolicy, _IMPORT_ERROR = _import_service_core()
 
 
 if DaemonServiceCoreMixin is None or DaemonServiceCoreRuntime is None:
@@ -147,3 +147,18 @@ else:
             service = _FakeServiceForCoreRuntime(Path.cwd())
             service._init_core_runtime()
             self.assertIsInstance(service._has_gui_session(), bool)
+
+        def test_injected_env_policy_overrides_default_env(self) -> None:
+            class _NoGuiPolicy(DaemonServiceCoreEnvPolicy):
+                def build_default_env(self, base_env: dict[str, str] | None = None) -> dict[str, str]:
+                    env = dict(base_env or {})
+                    env.setdefault("LANG", "en_US.UTF-8")
+                    env["SONOLBOT_GUI_SESSION"] = "0"
+                    return env
+
+            service = _FakeServiceForCoreRuntime(Path.cwd())
+            runtime = DaemonServiceCoreRuntime(service, env_policy=_NoGuiPolicy())
+            service._init_core_runtime(runtime)
+
+            self.assertEqual(runtime.env.get("LANG"), "en_US.UTF-8")
+            self.assertEqual(runtime.env.get("SONOLBOT_GUI_SESSION"), "0")
