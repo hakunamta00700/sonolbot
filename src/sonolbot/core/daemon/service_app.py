@@ -384,6 +384,8 @@ class DaemonServiceAppMixin:
         return None
 
     def _init_app_runtime(self, app_runtime: DaemonServiceAppRuntime | None = None) -> None:
+        if app_runtime is not None and not isinstance(app_runtime, DaemonServiceAppRuntime):
+            raise TypeError("app_runtime must be DaemonServiceAppRuntime")
         if app_runtime is None:
             app_runtime = DaemonServiceAppRuntime(self)
         self._app_runtime_component = app_runtime

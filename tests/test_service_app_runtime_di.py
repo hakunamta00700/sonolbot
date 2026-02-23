@@ -130,6 +130,16 @@ else:
                 self.assertIs(service.app_proc, runtime.app_proc)
                 self.assertIs(service._get_app_runtime(), runtime)
 
+        def test_init_app_runtime_rejects_invalid_runtime(self) -> None:
+            with tempfile.TemporaryDirectory() as td:
+                service = _FakeServiceForAppRuntime(Path(td))
+
+                with self.assertRaisesRegex(
+                    TypeError,
+                    "app_runtime must be DaemonServiceAppRuntime",
+                ):
+                    service._init_app_runtime(app_runtime=object())  # type: ignore[arg-type]
+
         def test_save_app_server_state_roundtrip(self) -> None:
             with tempfile.TemporaryDirectory() as td:
                 root = Path(td)

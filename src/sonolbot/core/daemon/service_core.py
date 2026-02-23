@@ -101,6 +101,8 @@ class DaemonServiceCoreMixin:
         env_policy: DaemonServiceCoreEnvPolicyProtocol | None = None,
         python_policy: DaemonServiceCorePythonPolicyProtocol | None = None,
     ) -> None:
+        if core_runtime is not None and not isinstance(core_runtime, DaemonServiceCoreRuntime):
+            raise TypeError("core_runtime must be DaemonServiceCoreRuntime")
         if core_runtime is None:
             core_runtime = DaemonServiceCoreRuntime(self, env_policy=env_policy, python_policy=python_policy)
         self._core_runtime_component = core_runtime

@@ -238,3 +238,11 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
 - [x] 체크: `rg -n \"invalid_runtime_injection|test_daemon_service_ctor_rejects_invalid_runtime_injection|rewriter_runtime must be DaemonServiceRewriterRuntime|core_runtime must be DaemonServiceCoreRuntime\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
 - [x] 커밋: `test: validate injected runtime objects`
+
+## 우선순위 32: 런타임 초기화 타입 가드 테스트 보강
+- [x] 작업: `DaemonServiceAppMixin._init_app_runtime` 잘못된 객체 타입 거부 테스트 추가
+- [x] 작업: `DaemonServiceLeaseMixin._init_lease_runtime` 잘못된 객체 타입 거부 테스트 추가
+- [x] 작업: `DaemonServiceTelegramMixin._init_telegram_runtime` 잘못된 객체 타입 거부 테스트 추가
+- [x] 테스트: `tests/test_service_app_runtime_di.py`, `tests/test_service_lease_runtime_di.py`, `tests/test_service_telegram_runtime_di.py` 실행
+- [x] 체크: `rg -n \"init_app_runtime_rejects_invalid_runtime|init_lease_runtime_rejects_invalid_runtime|init_telegram_runtime_rejects_invalid_runtime|app_runtime must be DaemonServiceAppRuntime|lease_runtime must be DaemonServiceLeaseRuntime|telegram_runtime must be DaemonServiceTelegramRuntime\" tests/test_service_app_runtime_di.py tests/test_service_lease_runtime_di.py tests/test_service_telegram_runtime_di.py`
+- [x] 커밋: `test: add runtime invalid injection checks for app/lease/telegram mixins`

@@ -92,6 +92,15 @@ else:
             self.assertEqual(resolved_skill, {"skill": "injected"})
             self.assertIs(service._get_telegram_runtime(), runtime)
 
+        def test_init_telegram_runtime_rejects_invalid_runtime(self) -> None:
+            service = _FakeServiceForTelegramRuntime()
+
+            with self.assertRaisesRegex(
+                TypeError,
+                "telegram_runtime must be DaemonServiceTelegramRuntime",
+            ):
+                service._init_telegram_runtime(telegram_runtime=object())  # type: ignore[arg-type]
+
         def test_telegram_runtime_is_cached_once(self) -> None:
             import sonolbot.core.daemon.service_telegram as telegram_module
 

@@ -11,6 +11,8 @@ class DaemonServiceTaskRuntime:
 
 class DaemonServiceTaskMixin:
     def _init_task_runtime(self, task_runtime: DaemonServiceTaskRuntime | None = None) -> None:
+        if task_runtime is not None and not isinstance(task_runtime, DaemonServiceTaskRuntime):
+            raise TypeError("task_runtime must be DaemonServiceTaskRuntime")
         runtime: DaemonServiceTaskRuntime
         if task_runtime is None:
             runtime = DaemonServiceTaskRuntime(self)

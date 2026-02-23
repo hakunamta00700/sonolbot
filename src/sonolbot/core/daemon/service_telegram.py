@@ -13,6 +13,8 @@ class DaemonServiceTelegramRuntime:
 
 class DaemonServiceTelegramMixin:
     def _init_telegram_runtime(self, telegram_runtime: DaemonServiceTelegramRuntime | None = None) -> None:
+        if telegram_runtime is not None and not isinstance(telegram_runtime, DaemonServiceTelegramRuntime):
+            raise TypeError("telegram_runtime must be DaemonServiceTelegramRuntime")
         if telegram_runtime is None:
             telegram_runtime = DaemonServiceTelegramRuntime(self)
         self._telegram_runtime_component = telegram_runtime

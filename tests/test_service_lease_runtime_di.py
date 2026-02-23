@@ -100,6 +100,16 @@ else:
                 service._chat_lease_busy_logged_at[101] = 12.3
                 self.assertEqual(runtime.chat_lease_busy_logged_at, {101: 12.3})
 
+        def test_init_lease_runtime_rejects_invalid_runtime(self) -> None:
+            with tempfile.TemporaryDirectory() as td:
+                service = _FakeServiceForLeaseRuntime(Path(td))
+
+                with self.assertRaisesRegex(
+                    TypeError,
+                    "lease_runtime must be DaemonServiceLeaseRuntime",
+                ):
+                    service._init_lease_runtime(runtime=object())  # type: ignore[arg-type]
+
         def test_completed_message_cache_lifecycle(self) -> None:
             with tempfile.TemporaryDirectory() as td:
                 service = _FakeServiceForLeaseRuntime(Path(td))

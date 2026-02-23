@@ -25,6 +25,8 @@ class DaemonServiceLeaseMixin:
         return None
 
     def _init_lease_runtime(self, runtime: DaemonServiceLeaseRuntime | None = None) -> None:
+        if runtime is not None and not isinstance(runtime, DaemonServiceLeaseRuntime):
+            raise TypeError("lease_runtime must be DaemonServiceLeaseRuntime")
         if runtime is None:
             runtime = DaemonServiceLeaseRuntime(self)
         self._lease_runtime_component = runtime
