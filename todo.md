@@ -24,10 +24,10 @@
 - [x] 커밋: `refactor: extract task domain methods into mixin`
 
 ## 3) 우선순위 3: App 서버 기능 분리 (`_app_*`)
-- [ ] 작업: App 서버 IPC/스레드/루프/세션 메서드를 `service_app.py`로 이동
-- [ ] 작업완료: `DaemonService`의 책임도메인 분리 범위 정리
-- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
-- [ ] 체크: `_app_*` 호출부 위임 경로 정합성 확인
+- [x] 작업: App 서버 IPC/스레드/루프/세션 메서드를 `service_app.py`로 이동
+- [x] 작업완료: `DaemonService`의 책임도메인 분리 범위 정리
+- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service_app.py`
+- [x] 체크: `rg -n "^    def _app_"`로 서비스 본체에서 `_app_*` 정의 제거 및 mixin에 이전 확인
 - [ ] 커밋: 작업 완료 후 순차 커밋
 
 ## 4) 우선순위 4: 채팅 릴리스/락 분리 (`_chat_lease_*`)
