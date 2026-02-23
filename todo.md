@@ -34,6 +34,6 @@ Rules
   - Centralize repeated merge-dedupe loops on `message_id` and skip invalid IDs safely.
 - [x] R4-2: Apply helper in `_handle_single_control_message` temp-task seed branch
   - Replace manual dedupe loop when combining `queued_messages` + temp seed messages.
-- [ ] R4-3: Apply helper in `_app_process_cycle` queued merge branches
+- [x] R4-3: Apply helper in `_app_process_cycle` queued merge branches
   - Replace manual dedupe loops in active-turn and initial turn batching paths.
 - [ ] R4-4: Run syntax check and commit.

@@ -5387,18 +5387,7 @@ class DaemonService:
                 if bool(state.get("force_new_thread_once")):
                     queued = list(state.get("queued_messages") or [])
                     queued.extend(new_items)
-                    deduped_waiting: list[dict[str, Any]] = []
-                    seen_waiting: set[int] = set()
-                    for item in queued:
-                        try:
-                            msg_id = int(item.get("message_id"))
-                        except Exception:
-                            continue
-                        if msg_id in seen_waiting:
-                            continue
-                        seen_waiting.add(msg_id)
-                        deduped_waiting.append(item)
-                    state["queued_messages"] = deduped_waiting
+                    state["queued_messages"] = self._dedupe_messages_by_message_id(messages=queued)
                     self._app_try_send_progress(chat_id, state)
                     continue
                 # Small coalescing window before steer to reduce call count.
@@ -5408,18 +5397,7 @@ class DaemonService:
                     queued = list(state.get("queued_messages") or [])
                     queued.extend(new_items)
                     # de-duplicate queued rows by message id while keeping order.
-                    deduped: list[dict[str, Any]] = []
-                    seen: set[int] = set()
-                    for item in queued:
-                        try:
-                            msg_id = int(item.get("message_id"))
-                        except Exception:
-                            continue
-                        if msg_id in seen:
-                            continue
-                        seen.add(msg_id)
-                        deduped.append(item)
-                    state["queued_messages"] = deduped
+                    state["queued_messages"] = self._dedupe_messages_by_message_id(messages=queued)
                 self._app_try_send_progress(chat_id, state)
                 continue
 
@@ -5430,18 +5408,7 @@ class DaemonService:
                 batch = new_items
             else:
                 merged = batch + new_items
-                deduped_batch: list[dict[str, Any]] = []
-                seen_batch: set[int] = set()
-                for item in merged:
-                    try:
-                        msg_id = int(item.get("message_id"))
-                    except Exception:
-                        continue
-                    if msg_id in seen_batch:
-                        continue
-                    seen_batch.add(msg_id)
-                    deduped_batch.append(item)
-                batch = deduped_batch
+                batch = self._dedupe_messages_by_message_id(messages=merged)
 
             started = self._app_start_turn_for_chat(chat_id, batch)
             if not started:
