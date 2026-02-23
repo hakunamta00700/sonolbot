@@ -66,4 +66,4 @@
 - [x] 작업: `DaemonServiceTelegramMixin._get_telegram_runtime_skill` 런타임 위임 재구성 (`_telegram_runtime`/`_telegram_skill` 제거)
 - [x] 테스트: `tests/test_service_telegram_runtime_di.py` 추가 (기본 런타임 생성/주입/캐시 동작 검증)
 - [x] 체크: `rg -n "_telegram_runtime_component|_init_telegram_runtime|_get_telegram_runtime" src/sonolbot/core/daemon/service_telegram.py src/sonolbot/core/daemon/service.py tests/test_service_telegram_runtime_di.py`
-- [ ] 커밋: `refactor: inject telegram runtime into DaemonService`
+- [x] 커밋: `refactor: inject telegram runtime into DaemonService`
