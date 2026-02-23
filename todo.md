@@ -145,3 +145,10 @@
 - [x] 테스트: `python -m py_compile tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
 - [x] 체크: `rg -n \"uses_injected_runtime_over_policies|DaemonServiceCoreRuntime\\(\" tests/test_service_core_runtime_di.py`
 - [x] 커밋: `test: ensure injected core runtime keeps priority over policies`
+
+## 우선순위 19: Core 런타임 주입 시 정책 무시 규칙 확장 테스트
+- [x] 작업: `env_policy`가 주입 런타임에서는 무시되는 회귀 케이스 추가
+- [x] 테스트: `test_init_core_runtime_ignores_policies_when_runtime_injected` 추가
+- [x] 테스트: `python -m py_compile tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
+- [x] 체크: `rg -n \"ignores_policies_when_runtime_injected|_NoDisplayPolicy|_BlankPythonPolicy\" tests/test_service_core_runtime_di.py`
+- [x] 커밋: `test: verify injected runtime ignores policy overrides`

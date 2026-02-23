@@ -188,6 +188,24 @@ else:
                 service._init_core_runtime(runtime, python_policy=_FallbackPythonPolicy())
                 self.assertEqual(service.python_bin, str(preferred))
 
+        def test_init_core_runtime_ignores_policies_when_runtime_injected(self) -> None:
+            service = _FakeServiceForCoreRuntime(Path.cwd())
+            runtime = DaemonServiceCoreRuntime(service)
+            runtime.env = {"LANG": "custom", "SONOLBOT_GUI_SESSION": "0"}
+
+            class _NoDisplayPolicy(DaemonServiceCoreEnvPolicy):
+                def has_gui_session(self, env: dict[str, str]) -> bool:
+                    return False
+
+            class _BlankPythonPolicy(DaemonServiceCorePythonPolicy):
+                def build_venv_python_paths(self, path_root: Path) -> list[Path]:
+                    return [path_root / "non-existent-python"]
+
+            service._init_core_runtime(runtime, env_policy=_NoDisplayPolicy(), python_policy=_BlankPythonPolicy())
+            self.assertEqual(service.env.get("LANG"), "custom")
+            self.assertEqual(runtime.env.get("SONOLBOT_GUI_SESSION"), "0")
+            self.assertEqual(service.python_bin, runtime.python_bin)
+
         def test_set_env_rebuilds_gui_session_marker(self) -> None:
             class _NoDisplayPolicy(DaemonServiceCoreEnvPolicy):
                 def has_gui_session(self, env: dict[str, str]) -> bool:
