@@ -23,7 +23,7 @@ Progress
 
 ## 3) Phase 2: Utility boundary cleanup
 - [ ] Move small utilities to shared modules where possible (string/env helpers)
-- [ ] Remove duplicated `_env_*` parsing wrappers if no longer needed
+- [x] Remove duplicated `_env_*` parsing wrappers if no longer needed
 - [ ] Mark phase complete in this TODO and commit
 
 ## 4) Risk sweep

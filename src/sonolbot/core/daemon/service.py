@@ -79,15 +79,6 @@ class DaemonService:
     def _daily_log_path(self) -> Path:
         return self.logs_dir / f"daemon-{datetime.now().strftime('%Y-%m-%d')}.log"
 
-    def _env_int(self, name: str, default: int, minimum: int = 0) -> int:
-        return _service_utils.env_int(name, default, minimum=minimum)
-
-    def _env_float(self, name: str, default: float, minimum: float = 0.0) -> float:
-        return _service_utils.env_float(name, default, minimum=minimum)
-
-    def _env_bool(self, name: str, default: bool) -> bool:
-        return _service_utils.env_bool(name, default)
-
     @staticmethod
     def _normalize_telegram_parse_mode(parse_mode: object) -> str:
         return _service_utils.normalize_telegram_parse_mode(parse_mode)
@@ -150,7 +141,7 @@ class DaemonService:
     def _build_disable_mcp_overrides_from_codex_config(self) -> tuple[list[str], Path]:
         config_path = self._resolve_codex_config_path()
         # Keep MCP enabled by default; opt-in disable via env for troubleshooting.
-        if not self._env_bool("SONOLBOT_DISABLE_MCP_IN_APP_SERVER", False):
+        if not _service_utils.env_bool("SONOLBOT_DISABLE_MCP_IN_APP_SERVER", False):
             return [], config_path
         if not config_path.exists():
             return [], config_path
