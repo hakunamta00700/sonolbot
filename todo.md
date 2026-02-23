@@ -202,3 +202,10 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
 - [x] 체크: `rg -n \"service_init_warnings|test_daemon_service_ctor_accepts_injected_warnings|service_config\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
 - [x] 커밋: `refactor: support injected service init warnings`
+
+## 우선순위 27: 기본 경고 경로 하위 호환성 검증
+- [x] 작업: `service_config` 미지정 시 `DaemonServiceConfig.from_env()` 경로 유지 테스트 추가
+- [x] 테스트: `test_daemon_service_uses_from_env_when_no_config_injected` 추가
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
+- [x] 체크: `rg -n \"from_env\\(|test_daemon_service_uses_from_env_when_no_config_injected\" tests/test_service_core_signature_di.py`
+- [x] 커밋: `test: keep default env warning path intact`
