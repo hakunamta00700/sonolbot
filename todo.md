@@ -28,7 +28,7 @@
 - [x] 작업완료: `DaemonService`의 책임도메인 분리 범위 정리
 - [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service_app.py`
 - [x] 체크: `rg -n "^    def _app_"`로 서비스 본체에서 `_app_*` 정의 제거 및 mixin에 이전 확인
-- [ ] 커밋: 작업 완료 후 순차 커밋
+ - [x] 커밋: `refactor: extract app server methods into mixin`
 
 ## 4) 우선순위 4: 채팅 릴리스/락 분리 (`_chat_lease_*`)
 - [ ] 작업: chat lease 전용 로직을 별도 mixin으로 이동
