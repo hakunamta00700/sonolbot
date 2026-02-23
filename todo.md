@@ -36,4 +36,4 @@ Rules
 ## 5) Phase 5: Risk sweep
 - [x] R1: Re-scan startup/parse-mode/exception edges touched by refactors
 - [x]   - Found and fixed undefined `message_id` in control-response finalization path (`src/sonolbot/core/daemon/service.py:1834`, `1851`, and `_handle_single_control_message` finalization calls)
-- [ ] R2: Final checklist + commit
+- [x] R2: Final checklist + commit
