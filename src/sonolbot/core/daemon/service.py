@@ -30,6 +30,7 @@ class DaemonService(
         core_env_policy: DaemonServiceCoreEnvPolicy | None = None,
         core_python_policy: DaemonServiceCorePythonPolicy | None = None,
         service_config: DaemonServiceConfig | None = None,
+        service_init_warnings: list[str] | None = None,
         task_runtime: DaemonServiceTaskRuntime | None = None,
         app_runtime: DaemonServiceAppRuntime | None = None,
         lease_runtime: DaemonServiceLeaseRuntime | None = None,
@@ -40,7 +41,7 @@ class DaemonService(
             self.config, init_warnings = DaemonServiceConfig.from_env()
         else:
             self.config = service_config
-            init_warnings = []
+            init_warnings = list(service_init_warnings or [])
         for name, value in self.config.as_dict().items():
             setattr(self, name, value)
         self._init_core_runtime(core_runtime, env_policy=core_env_policy, python_policy=core_python_policy)

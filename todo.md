@@ -194,3 +194,11 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
 - [x] 체크: `rg -n \"service_config\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
 - [x] 커밋: `refactor: accept injected daemon service config`
+
+## 우선순위 26: 생성자 경고 주입 DI
+- [x] 작업: `service_init_warnings` 주입 파라미터 추가
+- [x] 작업: `service_config` 사용 시 경고 목록이 `_log`로 전달되는 동작 검증 테스트 추가
+- [x] 테스트: `test_daemon_service_ctor_accepts_injected_warnings` 통과 및 전체 컴파일 테스트
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
+- [x] 체크: `rg -n \"service_init_warnings|test_daemon_service_ctor_accepts_injected_warnings|service_config\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
+- [x] 커밋: `refactor: support injected service init warnings`

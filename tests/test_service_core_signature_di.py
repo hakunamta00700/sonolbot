@@ -166,6 +166,82 @@ else:
                 else:
                     DaemonService._log = original_log
 
+        def test_daemon_service_ctor_accepts_injected_warnings(self) -> None:
+            captured: list[str] = []
+
+            original_init_core_runtime = DaemonService._init_core_runtime
+            original_init_telegram_runtime = DaemonService._init_telegram_runtime
+            original_init_task_runtime = DaemonService._init_task_runtime
+            original_init_app_runtime = DaemonService._init_app_runtime
+            original_init_lease_runtime = DaemonService._init_lease_runtime
+            original_harden = DaemonService._harden_sensitive_permissions
+            original_init_rewriter_runtime = DaemonService._init_rewriter_runtime
+            original_cleanup_activity_logs = getattr(DaemonService, "_cleanup_activity_logs", None)
+            original_rotate_activity_log = getattr(DaemonService, "_rotate_activity_log_if_needed", None)
+            original_log = getattr(DaemonService, "_log", None)
+
+            try:
+                with tempfile.TemporaryDirectory() as td:
+                    config = _FakeServiceConfig(Path(td))
+
+                    def fake_init_core_runtime(
+                        self,
+                        core_runtime=None,
+                        *,
+                        env_policy=None,
+                        python_policy=None,
+                    ) -> None:
+                        self._core_runtime_component = object()
+
+                    def noop(*_args: object, **_kwargs: object) -> None:
+                        return None
+
+                    def fake_log(_self: object, message: str) -> None:
+                        captured.append(str(message))
+
+                    DaemonService._init_core_runtime = fake_init_core_runtime
+                    DaemonService._init_telegram_runtime = noop
+                    DaemonService._init_task_runtime = noop
+                    DaemonService._init_app_runtime = noop
+                    DaemonService._init_lease_runtime = noop
+                    DaemonService._harden_sensitive_permissions = noop
+                    DaemonService._init_rewriter_runtime = noop
+                    DaemonService._cleanup_activity_logs = noop
+                    DaemonService._rotate_activity_log_if_needed = noop
+                    DaemonService._log = fake_log
+
+                    service = DaemonService(
+                        service_config=config,
+                        service_init_warnings=["A", "B"],
+                    )
+
+                    self.assertIs(service.config, config)
+                    self.assertIn("WARN: A", captured)
+                    self.assertIn("WARN: B", captured)
+            finally:
+                DaemonService._init_core_runtime = original_init_core_runtime
+                DaemonService._init_telegram_runtime = original_init_telegram_runtime
+                DaemonService._init_task_runtime = original_init_task_runtime
+                DaemonService._init_app_runtime = original_init_app_runtime
+                DaemonService._init_lease_runtime = original_init_lease_runtime
+                DaemonService._harden_sensitive_permissions = original_harden
+                DaemonService._init_rewriter_runtime = original_init_rewriter_runtime
+                if original_cleanup_activity_logs is None:
+                    if "_cleanup_activity_logs" in DaemonService.__dict__:
+                        del DaemonService._cleanup_activity_logs
+                else:
+                    DaemonService._cleanup_activity_logs = original_cleanup_activity_logs
+                if original_rotate_activity_log is None:
+                    if "_rotate_activity_log_if_needed" in DaemonService.__dict__:
+                        del DaemonService._rotate_activity_log_if_needed
+                else:
+                    DaemonService._rotate_activity_log_if_needed = original_rotate_activity_log
+                if original_log is None:
+                    if "_log" in DaemonService.__dict__:
+                        del DaemonService._log
+                else:
+                    DaemonService._log = original_log
+
         def test_daemon_service_ctor_includes_core_runtime_kwargs(self) -> None:
             signature = inspect.signature(DaemonService.__init__)
             params = signature.parameters
@@ -175,6 +251,7 @@ else:
                 "core_env_policy",
                 "core_python_policy",
                 "service_config",
+                "service_init_warnings",
             ):
                 self.assertIn(name, params)
 
@@ -182,6 +259,7 @@ else:
             self.assertEqual(params["core_env_policy"].default, None)
             self.assertEqual(params["core_python_policy"].default, None)
             self.assertEqual(params["service_config"].default, None)
+            self.assertEqual(params["service_init_warnings"].default, None)
 
         def test_daemon_service_constructor_uses_injected_config(self) -> None:
             import sonolbot.core.daemon.service as service_module
@@ -246,19 +324,19 @@ else:
                     DaemonService._init_app_runtime = original_init_app_runtime
                     DaemonService._init_lease_runtime = original_init_lease_runtime
                     DaemonService._harden_sensitive_permissions = original_harden
-                DaemonService._init_rewriter_runtime = original_init_rewriter_runtime
-                if original_cleanup_activity_logs is None:
-                    if "_cleanup_activity_logs" in DaemonService.__dict__:
-                        del DaemonService._cleanup_activity_logs
-                else:
-                    DaemonService._cleanup_activity_logs = original_cleanup_activity_logs
-                if original_rotate_activity_log is None:
-                    if "_rotate_activity_log_if_needed" in DaemonService.__dict__:
-                        del DaemonService._rotate_activity_log_if_needed
-                else:
-                    DaemonService._rotate_activity_log_if_needed = original_rotate_activity_log
-                if original_log is None:
-                    if "_log" in DaemonService.__dict__:
-                        del DaemonService._log
-                else:
-                    DaemonService._log = original_log
+                    DaemonService._init_rewriter_runtime = original_init_rewriter_runtime
+                    if original_cleanup_activity_logs is None:
+                        if "_cleanup_activity_logs" in DaemonService.__dict__:
+                            del DaemonService._cleanup_activity_logs
+                    else:
+                        DaemonService._cleanup_activity_logs = original_cleanup_activity_logs
+                    if original_rotate_activity_log is None:
+                        if "_rotate_activity_log_if_needed" in DaemonService.__dict__:
+                            del DaemonService._rotate_activity_log_if_needed
+                    else:
+                        DaemonService._rotate_activity_log_if_needed = original_rotate_activity_log
+                    if original_log is None:
+                        if "_log" in DaemonService.__dict__:
+                            del DaemonService._log
+                    else:
+                        DaemonService._log = original_log
