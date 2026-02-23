@@ -13,10 +13,10 @@ Progress
 - [x] Create `todo.md` and define refactor scope
 
 ## 2) Phase 1: Initialize config extraction
-- [ ] Add `src/sonolbot/core/daemon/service_config.py` with `DaemonServiceConfig`
+- [x] Add `src/sonolbot/core/daemon/service_config.py` with `DaemonServiceConfig`
   - Centralize env parsing, defaults, and clamping logic
   - Include validation for `DAEMON_TELEGRAM_DEFAULT_PARSE_MODE` and prompt file loading
-- [ ] Replace env parsing block in `DaemonService.__init__` with config loading
+- [x] Replace env parsing block in `DaemonService.__init__` with config loading
   - Set `self.*` runtime attributes from config values
   - Keep runtime behavior and warning messages equivalent
 - [ ] Mark phase complete in this TODO and commit
