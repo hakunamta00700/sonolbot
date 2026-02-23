@@ -38,11 +38,11 @@
 - [x] 커밋: 작업 완료 후 순차 커밋
 
 ## 5) 우선순위 5: Rewriter 기능 분리 (`_rewriter_*`)
-- [ ] 작업: Agent rewriter 관련 메서드 분리
-- [ ] 작업완료: `_rewriter_*` 동작을 외부 클래스 또는 mixin으로 위임
-- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
-- [ ] 체크: IPC 경로/로그 기록 부작용 점검
-- [ ] 커밋: 작업 완료 후 순차 커밋
+- [x] 작업: Agent rewriter 관련 메서드 분리
+- [x] 작업완료: `_rewriter_*` 동작을 외부 클래스 또는 mixin으로 위임
+- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service_app.py src/sonolbot/core/daemon/service_lease.py src/sonolbot/core/daemon/service_rewriter.py`
+- [x] 체크: `rg -n "^    def _rewriter_"` 로 서비스 본체/재포지션 확인 및 기존 호출부 동작 확인
+- [x] 커밋: 작업 완료 후 순차 커밋
 
 ## 6) 우선순위 6: 기타 공통 헬퍼 정리
 - [ ] 작업: `_send_control_reply` 의존성 최소화 및 중복 정리 마무리
