@@ -159,3 +159,10 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py`
 - [x] 체크: `rg -n \"Protocol|DaemonServiceCoreEnvPolicyProtocol|DaemonServiceCorePythonPolicyProtocol|env_policy:\" src/sonolbot/core/daemon/service_core.py`
 - [x] 커밋: `refactor(core): type policies with protocols`
+
+## 우선순위 21: 프로토콜 정책을 이용한 DI 동작 명세 테스트
+- [x] 작업: `DaemonServiceCoreRuntime`이 비상속 클래스(duck-typed) 정책을 수용하는지 검증
+- [x] 테스트: `test_init_core_runtime_accepts_protocol_style_policies` 추가
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
+- [x] 체크: `rg -n \"test_init_core_runtime_accepts_protocol_style_policies|_DuckEnvPolicy|_DuckPythonPolicy\" tests/test_service_core_runtime_di.py`
+- [x] 커밋: `test: allow protocol-style policies in core runtime`

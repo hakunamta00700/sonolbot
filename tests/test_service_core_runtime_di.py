@@ -206,6 +206,33 @@ else:
             self.assertEqual(runtime.env.get("SONOLBOT_GUI_SESSION"), "0")
             self.assertEqual(service.python_bin, runtime.python_bin)
 
+        def test_init_core_runtime_accepts_protocol_style_policies(self) -> None:
+            with tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                venv_python = root / "env" / "python"
+                venv_python.parent.mkdir(parents=True, exist_ok=True)
+                venv_python.write_text("", encoding="utf-8")
+
+                class _DuckEnvPolicy:
+                    def build_default_env(self, base_env: dict[str, str] | None = None) -> dict[str, str]:
+                        env = dict(base_env or {})
+                        env["DUMMY"] = "duck"
+                        env["SONOLBOT_GUI_SESSION"] = "1" if self.has_gui_session(env) else "0"
+                        return env
+
+                    def has_gui_session(self, env: dict[str, str]) -> bool:
+                        return False
+
+                class _DuckPythonPolicy:
+                    def build_venv_python_paths(self, path_root: Path) -> list[Path]:
+                        return [venv_python]
+
+                service = _FakeServiceForCoreRuntime(root)
+                service._init_core_runtime(env_policy=_DuckEnvPolicy(), python_policy=_DuckPythonPolicy())
+                self.assertEqual(service.python_bin, str(venv_python))
+                self.assertEqual(service.env.get("DUMMY"), "duck")
+                self.assertEqual(service.env.get("SONOLBOT_GUI_SESSION"), "0")
+
         def test_set_env_rebuilds_gui_session_marker(self) -> None:
             class _NoDisplayPolicy(DaemonServiceCoreEnvPolicy):
                 def has_gui_session(self, env: dict[str, str]) -> bool:
