@@ -59,4 +59,4 @@
 - [x] 작업: `DaemonServiceTaskMixin._get_task_skill` 런타임 위임 재구성 (`_task_skill` 제거)
 - [x] 테스트: `tests/test_service_task_runtime_di.py` 추가 (기본 런타임 생성/주입/캐시 동작 검증)
 - [x] 체크: `rg -n "_task_runtime_component|_init_task_runtime|_get_task_runtime" src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service.py tests/test_service_task_runtime_di.py`
-- [ ] 커밋: `refactor: inject task runtime into DaemonService`
+- [x] 커밋: `refactor: inject task runtime into DaemonService`
