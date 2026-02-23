@@ -17,10 +17,10 @@
 - [x] 커밋: `refactor: extract telegram helpers into mixin`
 
 ## 2) 우선순위 2: Task 기능 분리 (`_task_*`)
-- [ ] 작업: Task 관련 메서드를 `service_task.py`로 이동
-- [ ] 작업완료: `_get_task_skill`은 유지 의사결정 후 공용/Task mixin 적용
-- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
-- [ ] 체크: Task prefix 누락 항목 없는지 점검
+- [x] 작업: Task 관련 메서드를 `service_task.py`로 이동
+- [x] 작업완료: `_get_task_skill`은 Task mixin으로 이동 (`_run_task_commands_json` 포함), Task 도메인 메서드 30+개 이관
+- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py`
+- [x] 체크: `rg -n "^    def .*task" src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py` 및 `_lookup_mapped_thread_id` 등 task 도메인 잔존 점검
 - [ ] 커밋: 작업 완료 후 순차 커밋
 
 ## 3) 우선순위 3: App 서버 기능 분리 (`_app_*`)
