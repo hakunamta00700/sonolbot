@@ -105,3 +105,11 @@
 - [x] 테스트: `python -m unittest tests/test_service_core_runtime_di.py`
 - [x] 체크: `rg -n "DaemonServiceCoreEnvPolicy|env_policy|_import_service_core|test_injected_env_policy_overrides_default_env" src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py`
 - [x] 커밋: `refactor(core): inject env policy for runtime defaults`
+
+## 우선순위 14: DaemonService에서 env_policy 주입 파이프라인 정리
+- [x] 작업: `src/sonolbot/core/daemon/service.py` 생성자에 `core_env_policy` 옵션 추가
+- [x] 작업: `DaemonService`가 `_init_core_runtime(core_runtime, env_policy=core_env_policy)`로 초기화되도록 변경
+- [x] 테스트: `tests/test_service_core_runtime_di.py`에서 `_init_core_runtime(env_policy=...)` 경로 검증
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py` (실행 완료)
+- [x] 체크: `rg -n "core_env_policy|core_runtime, env_policy" src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py`
+- [x] 커밋: `refactor(core): add core_env_policy to service ctor`

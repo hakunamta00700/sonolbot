@@ -162,3 +162,15 @@ else:
 
             self.assertEqual(runtime.env.get("LANG"), "en_US.UTF-8")
             self.assertEqual(runtime.env.get("SONOLBOT_GUI_SESSION"), "0")
+
+        def test_init_core_runtime_accepts_env_policy(self) -> None:
+            class _HeadlessPolicy(DaemonServiceCoreEnvPolicy):
+                def has_gui_session(self, env: dict[str, str]) -> bool:
+                    return False
+
+            service = _FakeServiceForCoreRuntime(Path.cwd())
+            service._init_core_runtime(env_policy=_HeadlessPolicy())
+            runtime = service._get_core_runtime()
+            self.assertIsNotNone(runtime)
+            assert runtime is not None
+            self.assertEqual(runtime.env.get("SONOLBOT_GUI_SESSION"), "0")

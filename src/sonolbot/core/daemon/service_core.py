@@ -59,9 +59,14 @@ class DaemonServiceCoreRuntime:
 
 
 class DaemonServiceCoreMixin:
-    def _init_core_runtime(self, core_runtime: DaemonServiceCoreRuntime | None = None) -> None:
+    def _init_core_runtime(
+        self,
+        core_runtime: DaemonServiceCoreRuntime | None = None,
+        *,
+        env_policy: DaemonServiceCoreEnvPolicy | None = None,
+    ) -> None:
         if core_runtime is None:
-            core_runtime = DaemonServiceCoreRuntime(self)
+            core_runtime = DaemonServiceCoreRuntime(self, env_policy=env_policy)
         self._core_runtime_component = core_runtime
 
     def _get_core_runtime(self) -> DaemonServiceCoreRuntime | None:
