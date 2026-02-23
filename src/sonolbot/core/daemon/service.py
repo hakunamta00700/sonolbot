@@ -144,6 +144,86 @@ class DaemonService(
         self._cleanup_activity_logs()
         self._rotate_activity_log_if_needed(force=False)
 
+    def _cleanup_logs(self) -> None:
+        retention_days = max(1, int(self.log_retention_days))
+        cutoff = datetime.now().date() - timedelta(days=retention_days - 1)
+        for path in self.logs_dir.glob("*.log"):
+            m = re.search(r"(\\d{4}-\\d{2}-\\d{2})", path.stem)
+            if not m:
+                continue
+            try:
+                day = datetime.strptime(m.group(1), "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if day < cutoff:
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
+
+    def _cleanup_activity_logs(self) -> None:
+        retention_days = max(1, int(self.activity_retention_days))
+        cutoff = datetime.now().timestamp() - float(retention_days * 24 * 3600)
+        activity_dir = self.activity_file.parent
+        if not activity_dir.exists():
+            return
+        file_prefix = self.activity_file.name
+        for path in activity_dir.glob(f"{file_prefix}*"):
+            if path.name == file_prefix:
+                pass
+            elif not path.name.startswith(f"{file_prefix}."):
+                continue
+            try:
+                if path.stat().st_mtime < cutoff:
+                    path.unlink()
+            except OSError:
+                pass
+
+    def _rotate_activity_log_if_needed(self, *, force: bool = False) -> None:
+        max_bytes = max(1, int(self.activity_max_bytes))
+        backup_count = max(0, int(self.activity_backup_count))
+
+        if not self.activity_file.exists():
+            return
+        if self.activity_file.stat().st_size <= max_bytes and not force:
+            return
+
+        if backup_count <= 0:
+            try:
+                self.activity_file.write_text("", encoding="utf-8")
+            except Exception:
+                try:
+                    self.activity_file.unlink()
+                except Exception:
+                    pass
+            return
+
+        for idx in range(backup_count, 1, -1):
+            src = Path(f"{self.activity_file}.{idx - 1}")
+            dst = Path(f"{self.activity_file}.{idx}")
+            if not src.exists():
+                continue
+            try:
+                if dst.exists():
+                    dst.unlink()
+                src.replace(dst)
+            except OSError:
+                pass
+
+        backup_1 = Path(f"{self.activity_file}.1")
+        try:
+            if backup_1.exists():
+                backup_1.unlink()
+            self.activity_file.replace(backup_1)
+        except OSError:
+            pass
+
+    def _list_recent_tasks(
+        self, chat_id: int, limit: int = 20, source_limit: int = 200
+    ) -> list[dict[str, Any]]:
+        return DaemonServiceTaskMixin._list_recent_tasks(
+            self, chat_id=chat_id, limit=limit, source_limit=source_limit
+        )
     def _daily_log_path(self) -> Path:
         return self.logs_dir / f"daemon-{datetime.now().strftime('%Y-%m-%d')}.log"
 
@@ -200,7 +280,7 @@ class DaemonService(
         char_limit = max(1200, int(max_chars))
 
         lines: list[str] = [
-            "[���� ê �ֱ� ��ȭ ���(�ڵ�)]",
+            "[���� ê �ֱ� ��ȭ ���?(�ڵ�)]",
             f"- ����: �ֱ� {window_hours}�ð�",
             f"- ��ǥ �ټ�: �� {target}�� (�޽����� ������ �� ª�� �� ����)",
             "",
@@ -213,7 +293,7 @@ class DaemonService(
             self.logger.warning(
                 f"recent chat summary load failed chat_id={chat_id}: {exc}"
             )
-            lines.append("- �޽��� ����Ҹ� ���� ���� ����� �������� ���߽��ϴ�.")
+            lines.append("- �޽��� ����Ҹ�? ���� ���� �����? �������� ���߽��ϴ�.")
             return "\n".join(lines).strip()
 
         raw_messages = payload.get("messages", []) if isinstance(payload, dict) else []
@@ -347,7 +427,7 @@ class DaemonService(
             and current_mode != UI_MODE_AWAITING_RESUME_CHOICE
         ):
             reply_text = (
-                "���� ������ ����� ����Ǿ����. `TASK ��� ����(�ֱ�20)`�� �ٽ� ���� �ּ���."
+                "���� ������ �����? ����Ǿ����. `TASK ���? ����(�ֱ�20)`�� �ٽ� ���� �ּ���."
             )
             keyboard_rows = self._main_menu_keyboard_rows()
             sent = self._send_control_reply(
@@ -407,7 +487,7 @@ class DaemonService(
                 self._clear_ui_mode(state)
                 reply_text = (
                     "���� ���õ� TASK�� �����ϴ�.\n"
-                    "���� `TASK ��� ����(�ֱ�20)` �Ǵ� `���� TASK �̾��ϱ�`�� TASK�� ������ �ּ���."
+                    "���� `TASK ���? ����(�ֱ�20)` �Ǵ� `���� TASK �̾��ϱ�`�� TASK�� ������ �ּ���."
                 )
                 sent = self._send_control_reply(
                     chat_id=chat_id,
@@ -464,7 +544,7 @@ class DaemonService(
                 )
             elif exists:
                 reply_text = (
-                    f"`{relative_path}` ������ ���������� ���� ������ ��� �ֽ��ϴ�.\n"
+                    f"`{relative_path}` ������ ���������� ���� ������ ���? �ֽ��ϴ�.\n"
                     "���Ͻô� ��ħ ������ �����ֽø� �ڵ����� ������ ������ �ݿ��մϴ�."
                 )
             else:
@@ -554,7 +634,7 @@ class DaemonService(
                 self._clear_temp_task_seed(state)
                 self._clear_ui_mode(state)
                 reply_text = (
-                    "�� TASK�� �����ҰԿ�.\n" "��� ���� ������ ù ��û���� �̾ ó���մϴ�."
+                    "�� TASK�� �����ҰԿ�.\n" "���? ���� ������ ù ��û���� �̾ ó���մϴ�."
                 )
                 keyboard_rows = self._main_menu_keyboard_rows()
                 sent = self._send_control_reply(
@@ -688,7 +768,7 @@ class DaemonService(
         if text == BUTTON_MENU_BACK:
             self._clear_temp_task_seed(state)
             self._clear_ui_mode(state)
-            reply_text = "�޴��� ���ƿԾ��."
+            reply_text = "�޴��� ���ƿԾ��?."
             keyboard_rows = self._main_menu_keyboard_rows()
             sent = self._send_control_reply(
                 chat_id=chat_id,
@@ -778,7 +858,7 @@ class DaemonService(
                 and candidate_ids
                 and selected_task_id not in candidate_ids
             ):
-                reply_text = "���� ������ ����� ���ŵǾ����ϴ�. `TASK ��� ����(�ֱ�20)`�� �ٽ� ���� �ּ���."
+                reply_text = "���� ������ �����? ���ŵǾ����ϴ�. `TASK ���? ����(�ֱ�20)`�� �ٽ� ���� �ּ���."
                 keyboard_rows = self._main_menu_keyboard_rows()
                 sent = self._send_control_reply(
                     chat_id=chat_id,
@@ -790,7 +870,7 @@ class DaemonService(
                 return True
             if not selected_task_id:
                 if inline_only:
-                    reply_text = "��� �׸��� `����` ��ư�� �����ų�, ��ȣ(1,2,3...) �Ǵ� TASK ID�� �Է��� �ּ���."
+                    reply_text = "���? �׸��� `����` ��ư�� �����ų�, ��ȣ(1,2,3...) �Ǵ� TASK ID�� �Է��� �ּ���."
                     keyboard_rows = None
                 else:
                     reply_text = "�ĺ� ��ư�� �����ų�, ��ȣ(1,2,3...)�� �Է��� �ּ���."
@@ -908,7 +988,7 @@ class DaemonService(
                 return False
             alias = self._normalize_bot_alias(text, max_len=32)
             if not alias:
-                reply_text = "��Ī�� ��� �ֽ��ϴ�. 1~32�� ��Ī�� �Է��� �ּ���."
+                reply_text = "��Ī�� ���? �ֽ��ϴ�. 1~32�� ��Ī�� �Է��� �ּ���."
                 sent = self._send_control_reply(
                     chat_id=chat_id,
                     message_id=message_id,
@@ -1132,12 +1212,12 @@ class DaemonService(
         return (
             f"��������: {rendered_refs}\n"
             "�۾� �޸𸮴� sonolbot-tasks ��ų ��Ģ�� ���� �� "
-            f"({task_path_hint} ���б� �� ���� ��� ����ȭ).\n"
-            "��û������ ó���� ��, ����ڿ��� ������ ���� �亯 ������ �ۼ��� �� "
-            "(������� ��ħ �ؼ�/��׶��� ���� ��� ���� ��û���׿� ���� �������� �亯�� ������ ��. "
+            f"({task_path_hint} ���б� �� ���� ���? ����ȭ).\n"
+            "��û������ ó���� ��, ����ڿ���? ������ ���� �亯 ������ �ۼ��� �� "
+            "(�������? ��ħ �ؼ�/��׶���? ���� ���? ���� ��û���׿� ���� �������� �亯�� ������ ��. "
             "ģ���ϰ� �����ϱ� ���� ���ϵ� �� �˾ƾ� �� ������ ���߸��� ����)\n"
             "���� �亯�� �ڷ��׷� HTML �Ľ� �������� �ۼ��� �� "
-            "(�ʿ�� <b>, <code> �ּ� ���, Markdown ������ ������� �� ��).\n"
+            "(�ʿ��? <b>, <code> �ּ� ���?, Markdown ������ �������? �� ��).\n"
             f"��û����: {rendered_requests}"
         )
 
@@ -1394,14 +1474,14 @@ class DaemonService(
         if steering:
             parts.append("�߰� ���û���:")
         if carryover_summary:
-            parts.append("���� ��ȭ �ٽ� ���:\n" + carryover_summary)
+            parts.append("���� ��ȭ �ٽ� ���?:\n" + carryover_summary)
         if selected_task_packet:
             parts.append(selected_task_packet)
         if resume_recent_chat_summary:
-            parts.append("���� ê �ֱ� ��ȭ ���:\n" + resume_recent_chat_summary)
+            parts.append("���� ê �ֱ� ��ȭ ���?:\n" + resume_recent_chat_summary)
         body = self._build_dynamic_request_line(messages)
         if task_packet:
-            body = body + "\n\n�۾� �޸� ���:\n" + task_packet
+            body = body + "\n\n�۾� �޸� ���?:\n" + task_packet
         parts.append(body)
         return "\n\n".join(part for part in parts if str(part).strip())
 
@@ -1627,3 +1707,5 @@ class DaemonService(
             self._release_lock()
             self.logger.info("Daemon stopped")
         return 0
+
+
