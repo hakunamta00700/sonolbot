@@ -84,6 +84,11 @@ else:
             self.assertIs(service._get_task_runtime(), runtime)
             self.assertIs(service._get_task_skill(), fake_skill)
 
+        def test_init_task_runtime_rejects_invalid_runtime(self) -> None:
+            service = _FakeServiceForTaskRuntime()
+            with self.assertRaises(TypeError):
+                service._init_task_runtime(task_runtime=object())  # type: ignore[arg-type]
+
         def test_task_skill_is_cached_once(self) -> None:
             import sonolbot.core.daemon.service_task as service_task_module
 

@@ -246,3 +246,11 @@
 - [x] 테스트: `tests/test_service_app_runtime_di.py`, `tests/test_service_lease_runtime_di.py`, `tests/test_service_telegram_runtime_di.py` 실행
 - [x] 체크: `rg -n \"init_app_runtime_rejects_invalid_runtime|init_lease_runtime_rejects_invalid_runtime|init_telegram_runtime_rejects_invalid_runtime|app_runtime must be DaemonServiceAppRuntime|lease_runtime must be DaemonServiceLeaseRuntime|telegram_runtime must be DaemonServiceTelegramRuntime\" tests/test_service_app_runtime_di.py tests/test_service_lease_runtime_di.py tests/test_service_telegram_runtime_di.py`
 - [x] 커밋: `test: add runtime invalid injection checks for app/lease/telegram mixins`
+
+## 우선순위 33: 런타임 타입 가드 일괄 정합성 보강
+- [x] 작업: `test_init_core_runtime_rejects_invalid_runtime` 추가로 `core` 런타임 타입 가드 테스트 보강
+- [x] 작업: `test_init_task_runtime_rejects_invalid_runtime` 추가로 `task` 런타임 타입 가드 테스트 보강
+- [x] 작업: `DaemonServiceRewriterMixin._init_rewriter_runtime` 주입 타입 미검증시 `TypeError` 메시지 검증
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_rewriter.py tests/test_service_core_runtime_di.py tests/test_service_task_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py tests/test_service_task_runtime_di.py`
+- [x] 체크: `rg -n \"rewriter_runtime must be DaemonServiceRewriterRuntime|test_init_core_runtime_rejects_invalid_runtime|test_init_task_runtime_rejects_invalid_runtime|_init_rewriter_runtime\" src/sonolbot/core/daemon/service_rewriter.py tests/test_service_core_runtime_di.py tests/test_service_task_runtime_di.py`
+- [x] 커밋: `test: add runtime injection type guard checks for core/task/rewriter`

@@ -139,6 +139,8 @@ class DaemonServiceRewriterMixin:
         return None
 
     def _init_rewriter_runtime(self, runtime: DaemonServiceRewriterRuntime | None = None) -> None:
+        if runtime is not None and not isinstance(runtime, DaemonServiceRewriterRuntime):
+            raise TypeError("rewriter_runtime must be DaemonServiceRewriterRuntime")
         if runtime is None:
             runtime = DaemonServiceRewriterRuntime(self)
         self._rewriter_runtime_component = runtime
