@@ -40,3 +40,9 @@
 - [x] 커밋: `test: add daemon app runtime injection unit tests`
 
 
+
+## 우선순위 5: 테스트 의존성 안정화
+- [x] 작업: `tests/test_service_app_runtime_di.py`에서 `dotenv` 의존성 누락 시 대체 스텁 로딩 적용
+- [x] 테스트: `python -m unittest tests/test_service_app_runtime_di.py` (실제 4개 테스트 통과)
+- [x] 체크: `rg -n "_ensure_fake_dotenv|_import_service_app|daemon service app runtime dependency" tests/test_service_app_runtime_di.py`
+- [x] 커밋: `test: make app runtime DI tests runnable without optional env deps`

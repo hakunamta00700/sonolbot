@@ -2,24 +2,52 @@
 
 import json
 import os
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
-try:
-    from sonolbot.core.daemon.service_app import DaemonServiceAppMixin, DaemonServiceAppRuntime
-    _SERVICE_APP_IMPORT_ERROR: Exception | None = None
-except Exception as exc:  # pragma: no cover - environment dependent
-    DaemonServiceAppMixin = None
-    DaemonServiceAppRuntime = None
-    _SERVICE_APP_IMPORT_ERROR = exc
+
+def _ensure_fake_dotenv() -> None:
+    if "dotenv" in sys.modules:
+        return
+    fake = types.ModuleType("dotenv")
+
+    def _load_dotenv(*_args: object, **_kwargs: object) -> bool:
+        return False
+
+    fake.load_dotenv = _load_dotenv
+    sys.modules["dotenv"] = fake
+
+
+def _import_service_app():
+    try:
+        from sonolbot.core.daemon.service_app import DaemonServiceAppMixin, DaemonServiceAppRuntime
+
+        return DaemonServiceAppMixin, DaemonServiceAppRuntime, None
+    except ModuleNotFoundError as exc:
+        if "dotenv" not in str(exc):
+            return None, None, exc
+        _ensure_fake_dotenv()
+        try:
+            from sonolbot.core.daemon.service_app import DaemonServiceAppMixin, DaemonServiceAppRuntime
+
+            return DaemonServiceAppMixin, DaemonServiceAppRuntime, None
+        except Exception as inner_exc:  # pragma: no cover
+            return None, None, inner_exc
+    except Exception as exc:  # pragma: no cover
+        return None, None, exc
+
+
+DaemonServiceAppMixin, DaemonServiceAppRuntime, _IMPORT_ERROR = _import_service_app()
 
 if DaemonServiceAppMixin is None or DaemonServiceAppRuntime is None:
 
     @unittest.skip("daemon service app runtime dependency unavailable")
-    class TestDaemonServiceAppRuntimeImport(unittest.TestCase):
-        def test_app_runtime_dependency_unavailable(self) -> None:  # pragma: no cover
-            self.assertIsNotNone(_SERVICE_APP_IMPORT_ERROR)
+    class TestDaemonServiceAppRuntimeDependency(unittest.TestCase):
+        def test_service_app_import_dependency(self) -> None:
+            self.assertIsNone(_IMPORT_ERROR)
 
 else:
 
