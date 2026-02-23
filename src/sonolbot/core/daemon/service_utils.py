@@ -115,16 +115,22 @@ def normalize_thread_id_token(value: object, *, compact_max_len: int = 220) -> s
     if not candidate:
         return ""
     normalized = normalize_task_id_token(f"thread_{candidate}")
-    if not normalized.startswith("thread_"):
+    if not normalized.lower().startswith("thread_"):
         return ""
-    return normalized[len("thread_") :]
+    thread_id = normalized[len("thread_") :]
+    if not re.fullmatch(
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+        thread_id,
+    ):
+        return ""
+    return thread_id
 
 
 def split_text_chunks(text: str, max_chars: int = DEFAULT_TASK_GUIDE_TELEGRAM_CHUNK_CHARS) -> list[str]:
     rendered = str(text or "")
     if not rendered:
         return []
-    limit = max(500, int(max_chars))
+    limit = max(1, int(max_chars))
     chunks: list[str] = []
     buffer = ""
     for line in rendered.splitlines(keepends=True):
