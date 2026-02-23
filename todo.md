@@ -19,7 +19,7 @@ Progress
 - [x] Replace env parsing block in `DaemonService.__init__` with config loading
   - Set `self.*` runtime attributes from config values
   - Keep runtime behavior and warning messages equivalent
-- [ ] Mark phase complete in this TODO and commit
+- [x] Mark phase complete in this TODO and commit
 
 ## 3) Phase 2: Utility boundary cleanup
 - [ ] Move small utilities to shared modules where possible (string/env helpers)
