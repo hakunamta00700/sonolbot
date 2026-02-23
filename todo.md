@@ -29,4 +29,5 @@
 - [x] 작업완료: `DaemonService`/`service_app` 동작 일관성 정리 완료(초기화 주입 흐름 검토)
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_app.py src/sonolbot/core/daemon/service.py`
 - [x] 체크: `rg -n "self\._app_runtime_component|self\.app_" src/sonolbot/core/daemon/service_app.py src/sonolbot/core/daemon/service.py`
-- [ ] 커밋: `refactor: inject app runtime into DaemonService`
+- [x] 커밋: `refactor: inject app runtime into DaemonService`
+
