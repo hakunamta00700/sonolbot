@@ -79,6 +79,7 @@ else:
                 self.assertIsNone(service.codex_run_meta)
                 self.assertIsInstance(service.env, dict)
                 self.assertIn("LANG", service.env)
+                self.assertIn("SONOLBOT_GUI_SESSION", service.env)
                 self.assertEqual(service.python_bin, sys.executable)
 
         def test_init_core_runtime_prefers_workspace_venv_python(self) -> None:
@@ -99,6 +100,17 @@ else:
 
                 service._init_core_runtime()
                 self.assertEqual(service.python_bin, expected_python)
+
+        def test_init_core_runtime_builds_env_default_gui_session_marker(self) -> None:
+            service = _FakeServiceForCoreRuntime(Path.cwd())
+            service._init_core_runtime()
+            runtime = service._get_core_runtime()
+            assert runtime is not None
+
+            expected_gui = "1"
+            if os.name != "nt":
+                expected_gui = "1" if bool(runtime.env.get("DISPLAY") or runtime.env.get("WAYLAND_DISPLAY")) else "0"
+            self.assertEqual(runtime.env.get("SONOLBOT_GUI_SESSION"), expected_gui)
 
         def test_injected_runtime_instance_is_shared(self) -> None:
             service = _FakeServiceForCoreRuntime(Path.cwd())

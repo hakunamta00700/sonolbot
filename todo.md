@@ -87,3 +87,12 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
 - [x] 체크: `rg -n "Scripts|python.exe|_detect_python_bin|os.name == \"nt\"|expected_python" src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py`
 - [x] 커밋: `refactor(core): detect venv python path per platform`
+
+## 우선순위 12: Core 런타임 env/GUI 세션 로직 분리
+- [x] 작업: `DaemonServiceCoreRuntime`에 GUI 세션 판별을 `env` 의존형 유틸로 분리(`_build_default_env`, `_has_gui_session(env=...)`)
+- [x] 작업: `DaemonServiceCoreRuntime`에 venv 후보 경로 생성 헬퍼 `_candidate_venv_python_paths(root)` 추가
+- [x] 테스트: `test_init_core_runtime_defaults`에서 `SONOLBOT_GUI_SESSION` 기본 키 검증
+- [x] 테스트: `test_init_core_runtime_builds_env_default_gui_session_marker` 추가
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
+- [x] 체크: `rg -n "_build_default_env|_candidate_venv_python_paths|_has_gui_session\\(" src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py`
+- [x] 커밋: `refactor(core): isolate gui session env and venv candidate builder`

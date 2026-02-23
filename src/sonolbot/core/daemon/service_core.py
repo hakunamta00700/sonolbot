@@ -15,30 +15,40 @@ class DaemonServiceCoreRuntime:
         self.codex_run_meta: Optional[dict[str, object]] = None
         self.codex_cli_version = ""
         self.stop_requested = False
-        self.env = os.environ.copy()
-        self.env.setdefault("LANG", "C.UTF-8")
-        self.env.setdefault("LC_ALL", "C.UTF-8")
-        self.env.setdefault("PYTHONUTF8", "1")
-        self.env.setdefault("PYTHONIOENCODING", "UTF-8")
-        self.env["SONOLBOT_GUI_SESSION"] = "1" if self._has_gui_session() else "0"
+        self.env = self._build_default_env()
+        self.env["SONOLBOT_GUI_SESSION"] = "1" if self._has_gui_session(self.env) else "0"
+
+    def _build_default_env(self) -> dict[str, str]:
+        env = os.environ.copy()
+        env.setdefault("LANG", "C.UTF-8")
+        env.setdefault("LC_ALL", "C.UTF-8")
+        env.setdefault("PYTHONUTF8", "1")
+        env.setdefault("PYTHONIOENCODING", "UTF-8")
+        return env
 
     def _detect_python_bin(self) -> str:
         root = getattr(self.service, "root", None)
         if isinstance(root, Path):
-            candidate_paths = [root / ".venv" / "bin" / "python"]
-            if os.name == "nt":
-                candidate_paths.insert(0, root / ".venv" / "Scripts" / "python.exe")
+            candidate_paths = self._candidate_venv_python_paths(root)
 
             for venv_py in candidate_paths:
                 if venv_py.exists():
                     return str(venv_py)
         return sys.executable
 
+    def _candidate_venv_python_paths(self, root: Path) -> list[Path]:
+        candidates: list[Path] = [root / ".venv" / "bin" / "python"]
+        if os.name == "nt":
+            candidates.insert(0, root / ".venv" / "Scripts" / "python.exe")
+        return candidates
+
     @staticmethod
-    def _has_gui_session() -> bool:
+    def _has_gui_session(env: dict[str, str] | None = None) -> bool:
+        if env is None:
+            env = dict(os.environ)
         if os.name == "nt":
             return True
-        return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+        return bool(env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
 
 
 class DaemonServiceCoreMixin:
@@ -57,7 +67,7 @@ class DaemonServiceCoreMixin:
         runtime = self._get_core_runtime()
         if runtime is None:
             return False
-        return runtime._has_gui_session()
+        return runtime._has_gui_session(runtime.env)
 
     @property
     def python_bin(self) -> str:
