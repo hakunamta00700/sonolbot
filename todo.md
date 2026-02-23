@@ -45,8 +45,8 @@
 - [x] 커밋: 작업 완료 후 순차 커밋
 
 ## 6) 우선순위 6: 기타 공통 헬퍼 정리
-- [ ] 작업: `_send_control_reply` 의존성 최소화 및 중복 정리 마무리
-- [ ] 작업완료: `todo.md` 진행표준을 유지하며 다음 단계 인덱스 반영
-- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
-- [ ] 체크: 전체 파일에서 prefix 기반 분리 이력 요약
-- [ ] 커밋: 마무리 정리 완료 후 커밋
+- [x] 작업: `app-server` 분리 밖 잔존 보조 메서드(예: rewriter helper) 정리
+- [x] 작업완료: `DaemonServiceRewriterMixin`으로 rewriter 보조 책임 통합
+- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service_app.py src/sonolbot/core/daemon/service_lease.py src/sonolbot/core/daemon/service_rewriter.py`
+- [x] 체크: 전체 파일에서 prefix 기반 분리 이력 요약 및 `_rewriter_*`/재작성 보조 메서드의 mixin 적치 확인
+- [x] 커밋: 마무리 정리 완료 후 커밋
