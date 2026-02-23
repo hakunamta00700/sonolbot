@@ -1108,10 +1108,6 @@ class DaemonService:
         return skill
 
     @staticmethod
-    def _compact_prompt_text(value: object, max_len: int = 240) -> str:
-        return _service_utils.compact_prompt_text(value, max_len=max_len)
-
-    @staticmethod
     def _escape_telegram_html(value: object) -> str:
         return html.escape(str(value or "").strip(), quote=True)
 
@@ -1137,45 +1133,12 @@ class DaemonService:
             return f"🔴[{status}]"
         return f"🔵[{status}]"
 
-    @staticmethod
-    def _strip_new_command_prefix(text: str) -> str:
-        return _service_utils.strip_new_command_prefix(text)
-
-    @staticmethod
-    def _normalize_ui_text(text: str) -> str:
-        return _service_utils.normalize_ui_text(text)
-
-    @staticmethod
-    def _extract_msg_id_token(text: str) -> int:
-        return _service_utils.extract_msg_id_token(text)
-
-    @staticmethod
-    def _normalize_task_id_token(value: object) -> str:
-        return _service_utils.normalize_task_id_token(value)
-
-    def _normalize_thread_id_token(self, value: object) -> str:
-        return _service_utils.normalize_thread_id_token(value, compact_max_len=220)
-
-    def _task_row_id(self, row: dict[str, Any]) -> str:
-        return _service_utils.task_row_id(row)
-
     def _main_menu_keyboard_rows(self) -> list[list[str]]:
         return [
             [BUTTON_TASK_LIST_RECENT20, BUTTON_TASK_RESUME],
             [BUTTON_TASK_NEW, BUTTON_TASK_GUIDE_VIEW],
             [BUTTON_BOT_RENAME],
         ]
-
-    @staticmethod
-    def _split_text_chunks(text: str, max_chars: int = DEFAULT_TASK_GUIDE_TELEGRAM_CHUNK_CHARS) -> list[str]:
-        return _service_utils.split_text_chunks(text, max_chars=max_chars)
-
-    def _build_candidate_keyboard_rows(self, button_texts: list[str], per_row: int = 1) -> list[list[str]]:
-        return _service_utils.build_candidate_keyboard_rows(
-            button_texts,
-            main_menu_rows=self._main_menu_keyboard_rows(),
-            per_row=per_row,
-        )
 
     def _build_task_inline_select_keyboard(
         self,
@@ -1184,7 +1147,7 @@ class DaemonService:
     ) -> list[list[dict[str, str]]]:
         inline_rows: list[list[dict[str, str]]] = []
         for idx, row in enumerate(rows[: max(1, int(max_count))], start=1):
-            task_id = self._task_row_id(row)
+            task_id = _service_utils.task_row_id(row)
             if not task_id:
                 continue
             inline_rows.append(
@@ -1199,7 +1162,7 @@ class DaemonService:
 
     @staticmethod
     def _build_single_task_inline_select_keyboard(task_id: str) -> list[list[dict[str, str]]]:
-        normalized = DaemonService._normalize_task_id_token(task_id)
+        normalized = _service_utils.normalize_task_id_token(task_id)
         if not normalized:
             return []
         return [[{"text": "선택", "callback_data": f"{INLINE_TASK_SELECT_CALLBACK_PREFIX}{normalized}"}]]
@@ -1210,7 +1173,7 @@ class DaemonService:
         if not normalized.lower().startswith(CALLBACK_TASK_SELECT_PREFIX):
             return ""
         suffix = normalized[len(CALLBACK_TASK_SELECT_PREFIX) :].strip()
-        return DaemonService._normalize_task_id_token(suffix)
+        return _service_utils.normalize_task_id_token(suffix)
 
     def _set_ui_mode(self, state: dict[str, Any], mode: str) -> None:
         state["ui_mode"] = mode
@@ -1222,10 +1185,10 @@ class DaemonService:
         candidate_map: dict[str, str] = {}
         seen_buttons: set[str] = set()
         for idx, row in enumerate(rows[: max(1, int(max_count))], start=1):
-            task_id = self._task_row_id(row)
+            task_id = _service_utils.task_row_id(row)
             if not task_id:
                 continue
-            title = self._compact_prompt_text(
+            title = _service_utils.compact_prompt_text(
                 row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
                 max_len=36,
             ) or task_id
@@ -1233,10 +1196,10 @@ class DaemonService:
             base = button
             dedupe = 2
             while button in seen_buttons:
-                button = self._compact_prompt_text(f"{base} #{dedupe}", max_len=40) or f"{idx}. {task_id}"
+                button = _service_utils.compact_prompt_text(f"{base} #{dedupe}", max_len=40) or f"{idx}. {task_id}"
                 dedupe += 1
             seen_buttons.add(button)
-            normalized_button = self._normalize_ui_text(button)
+            normalized_button = _service_utils.normalize_ui_text(button)
             candidate_ids.append(task_id)
             candidate_buttons.append(button)
             candidate_map[normalized_button] = task_id
@@ -1268,7 +1231,7 @@ class DaemonService:
         text = text.replace("(", "").replace(")", "").strip()
         if not text:
             return ""
-        return self._compact_prompt_text(text, max_len=max(8, int(max_len)))
+        return _service_utils.compact_prompt_text(text, max_len=max(8, int(max_len)))
 
     def _telegram_get_me_name(self, request_max_attempts: int = 1) -> str:
         runtime, telegram = self._get_telegram_runtime_skill()
@@ -1287,7 +1250,7 @@ class DaemonService:
             return ""
         if not isinstance(profile, dict):
             return ""
-        return self._compact_prompt_text(profile.get("first_name", ""), max_len=80)
+        return _service_utils.compact_prompt_text(profile.get("first_name", ""), max_len=80)
 
     def _telegram_get_my_name(self, request_max_attempts: int = 1) -> str:
         runtime, telegram = self._get_telegram_runtime_skill()
@@ -1305,7 +1268,7 @@ class DaemonService:
         except Exception as exc:
             self._log(f"WARN: get_my_name failed: {exc}")
             return ""
-        return self._compact_prompt_text(value, max_len=80)
+        return _service_utils.compact_prompt_text(value, max_len=80)
 
     def _telegram_set_my_name(self, target_name: str, request_max_attempts: int = 1) -> bool:
         runtime, telegram = self._get_telegram_runtime_skill()
@@ -1355,13 +1318,13 @@ class DaemonService:
         return cfg, None
 
     def _resolve_bot_base_name(self, preferred: object = "") -> str:
-        preferred_text = self._compact_prompt_text(preferred, max_len=80)
+        preferred_text = _service_utils.compact_prompt_text(preferred, max_len=80)
         if preferred_text:
             return self._strip_trailing_bot_alias_suffix(preferred_text)
         cfg, row = self._load_current_bot_row()
         _ = cfg
         if isinstance(row, dict):
-            row_name = self._compact_prompt_text(row.get("bot_name", ""), max_len=80)
+            row_name = _service_utils.compact_prompt_text(row.get("bot_name", ""), max_len=80)
             if row_name:
                 return self._strip_trailing_bot_alias_suffix(row_name)
         my_name = self._telegram_get_my_name(request_max_attempts=1)
@@ -1373,7 +1336,7 @@ class DaemonService:
         return ""
 
     def _save_bot_name_to_config(self, new_name: str) -> bool:
-        normalized_new_name = self._compact_prompt_text(new_name, max_len=80)
+        normalized_new_name = _service_utils.compact_prompt_text(new_name, max_len=80)
         if not normalized_new_name:
             return False
         cfg, row = self._load_current_bot_row()
@@ -1400,11 +1363,11 @@ class DaemonService:
         previous_name = self._telegram_get_my_name(request_max_attempts=1)
         if not previous_name:
             previous_name = self._telegram_get_me_name(request_max_attempts=1)
-        previous_name = self._compact_prompt_text(previous_name, max_len=80)
+        previous_name = _service_utils.compact_prompt_text(previous_name, max_len=80)
         base_name = self._resolve_bot_base_name(preferred=base_name_hint or previous_name)
         if not base_name:
             return False, "현재 봇 기본 이름을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요."
-        target_name = self._compact_prompt_text(f"{base_name}({alias})", max_len=80)
+        target_name = _service_utils.compact_prompt_text(f"{base_name}({alias})", max_len=80)
         if not target_name:
             return False, "변경할 이름을 만들지 못했습니다. 다시 입력해 주세요."
         if not self._telegram_set_my_name(target_name, request_max_attempts=1):
@@ -1412,7 +1375,7 @@ class DaemonService:
         verified_name = self._telegram_get_my_name(request_max_attempts=1)
         if not verified_name:
             verified_name = self._telegram_get_me_name(request_max_attempts=1)
-        verified_name = self._compact_prompt_text(verified_name, max_len=80)
+        verified_name = _service_utils.compact_prompt_text(verified_name, max_len=80)
         if not verified_name:
             return False, "텔레그램 이름 변경 확인에 실패했습니다. 잠시 후 다시 시도해 주세요."
         if verified_name != target_name:
@@ -1426,7 +1389,7 @@ class DaemonService:
             )
         if not self._save_bot_name_to_config(verified_name):
             rolled_back = False
-            rollback_target = self._compact_prompt_text(previous_name, max_len=80)
+            rollback_target = _service_utils.compact_prompt_text(previous_name, max_len=80)
             if rollback_target and rollback_target != verified_name:
                 rolled_back = self._telegram_set_my_name(rollback_target, request_max_attempts=1)
             if rolled_back:
@@ -1760,7 +1723,7 @@ class DaemonService:
             return None
 
     def _load_task_row(self, chat_id: int, task_id: str, include_instrunction: bool = False) -> dict[str, Any] | None:
-        normalized_task_id = self._normalize_task_id_token(task_id)
+        normalized_task_id = _service_utils.normalize_task_id_token(task_id)
         if not normalized_task_id:
             return None
         task_root = self._task_root_for_chat(chat_id)
@@ -1800,20 +1763,20 @@ class DaemonService:
             return 0.0
 
     def _resolve_task_agents_thread_id(self, state: dict[str, Any]) -> str:
-        current_thread_id = self._normalize_thread_id_token(state.get("thread_id"))
+        current_thread_id = _service_utils.normalize_thread_id_token(state.get("thread_id"))
         if current_thread_id:
             return current_thread_id
-        return self._normalize_thread_id_token(state.get("resume_target_thread_id"))
+        return _service_utils.normalize_thread_id_token(state.get("resume_target_thread_id"))
 
     def _task_agents_path(self, chat_id: int, thread_id: str) -> Path:
-        normalized_thread_id = self._normalize_thread_id_token(thread_id)
+        normalized_thread_id = _service_utils.normalize_thread_id_token(thread_id)
         if not normalized_thread_id:
             raise ValueError("thread_id is required for task AGENTS path")
         task_root = self._task_root_for_chat(chat_id)
         return (task_root / f"thread_{normalized_thread_id}" / TASK_AGENTS_FILENAME).resolve()
 
     def _task_agents_relative_path(self, chat_id: int, thread_id: str) -> str:
-        normalized_thread_id = self._normalize_thread_id_token(thread_id)
+        normalized_thread_id = _service_utils.normalize_thread_id_token(thread_id)
         if not normalized_thread_id:
             return ""
         if self.tasks_partition_by_chat:
@@ -1845,7 +1808,7 @@ class DaemonService:
 
     @staticmethod
     def _is_task_guide_edit_request_text(text: str) -> bool:
-        normalized = DaemonService._normalize_ui_text(text).lower()
+        normalized = _service_utils.normalize_ui_text(text).lower()
         if not normalized:
             return False
         if TASK_GUIDE_TRIGGER_TEXT not in normalized:
@@ -1855,7 +1818,7 @@ class DaemonService:
         return any(keyword in normalized for keyword in TASK_GUIDE_EDIT_KEYWORDS)
 
     def _default_task_agents_template(self, thread_id: str) -> str:
-        normalized_thread_id = self._normalize_thread_id_token(thread_id)
+        normalized_thread_id = _service_utils.normalize_thread_id_token(thread_id)
         return (
             "# AGENTS.md\n\n"
             f"- Task Folder: thread_{normalized_thread_id}\n"
@@ -1976,7 +1939,7 @@ class DaemonService:
         normalized.sort(
             key=lambda row: (
                 self._task_row_recency_epoch(row),
-                self._task_row_id(row),
+                _service_utils.task_row_id(row),
             ),
             reverse=True,
         )
@@ -1985,9 +1948,9 @@ class DaemonService:
     def _recover_latest_thread_id_for_chat(self, chat_id: int) -> str:
         rows = self._list_recent_tasks(chat_id=chat_id, limit=20, source_limit=120)
         for row in rows:
-            thread_id = self._compact_prompt_text(row.get("thread_id", ""), max_len=220)
+            thread_id = _service_utils.compact_prompt_text(row.get("thread_id", ""), max_len=220)
             if not thread_id:
-                task_id = self._task_row_id(row)
+                task_id = _service_utils.task_row_id(row)
                 if task_id.startswith("thread_"):
                     thread_id = task_id[len("thread_") :]
             if thread_id:
@@ -2001,16 +1964,16 @@ class DaemonService:
             "",
         ]
         for idx, row in enumerate(rows, start=1):
-            title = self._compact_prompt_text(
+            title = _service_utils.compact_prompt_text(
                 row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
                 max_len=44,
             ) or "(제목 없음)"
-            subtitle = self._compact_prompt_text(
+            subtitle = _service_utils.compact_prompt_text(
                 row.get("display_subtitle", "") or row.get("result_summary_short", "") or row.get("instruction_short", ""),
                 max_len=64,
             )
             work_status_badge = self._render_user_work_status_badge(row.get("work_status", "") or row.get("status", ""))
-            recent_ts = self._compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
+            recent_ts = _service_utils.compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
             title_html = self._escape_telegram_html(title)
             subtitle_html = self._escape_telegram_html(subtitle) if subtitle else "-"
             work_html = self._escape_telegram_html(work_status_badge)
@@ -2023,16 +1986,16 @@ class DaemonService:
         return "\n".join(lines).strip()
 
     def _render_task_item_card_text(self, idx: int, row: dict[str, Any]) -> str:
-        title = self._compact_prompt_text(
+        title = _service_utils.compact_prompt_text(
             row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
             max_len=44,
         ) or "(제목 없음)"
-        subtitle = self._compact_prompt_text(
+        subtitle = _service_utils.compact_prompt_text(
             row.get("display_subtitle", "") or row.get("result_summary_short", "") or row.get("instruction_short", ""),
             max_len=64,
         )
         work_status_badge = self._render_user_work_status_badge(row.get("work_status", "") or row.get("status", ""))
-        recent_ts = self._compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
+        recent_ts = _service_utils.compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
         title_html = self._escape_telegram_html(title)
         subtitle_html = self._escape_telegram_html(subtitle) if subtitle else "-"
         work_html = self._escape_telegram_html(work_status_badge)
@@ -2060,16 +2023,16 @@ class DaemonService:
             "",
         ]
         for idx, row in enumerate(rows, start=1):
-            title = self._compact_prompt_text(
+            title = _service_utils.compact_prompt_text(
                 row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
                 max_len=44,
             ) or "(제목 없음)"
-            subtitle = self._compact_prompt_text(
+            subtitle = _service_utils.compact_prompt_text(
                 row.get("display_subtitle", "") or row.get("result_summary_short", ""),
                 max_len=52,
             )
             work_status_badge = self._render_user_work_status_badge(row.get("work_status", "") or row.get("status", ""))
-            recent_ts = self._compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
+            recent_ts = _service_utils.compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
             try:
                 relevance_score = int(row.get("relevance_score", -1))
             except Exception:
@@ -2132,14 +2095,14 @@ class DaemonService:
     ) -> str:
         compact_candidates: list[dict[str, Any]] = []
         for row in candidates:
-            task_id = self._task_row_id(row)
+            task_id = _service_utils.task_row_id(row)
             if not task_id:
                 continue
-            title = self._compact_prompt_text(
+            title = _service_utils.compact_prompt_text(
                 row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
                 max_len=70,
             ) or "(제목 없음)"
-            summary = self._compact_prompt_text(
+            summary = _service_utils.compact_prompt_text(
                 row.get("display_subtitle", "") or row.get("result_summary_short", "") or row.get("instruction_short", ""),
                 max_len=140,
             )
@@ -2154,7 +2117,7 @@ class DaemonService:
             )
         request_payload = {
             "version": 1,
-            "query": self._normalize_ui_text(query),
+            "query": _service_utils.normalize_ui_text(query),
             "top_k": int(limit),
             "min_score": int(min_score),
             "candidates": compact_candidates,
@@ -2248,7 +2211,7 @@ class DaemonService:
         return None
 
     def _search_task_candidates_via_llm(self, chat_id: int, query: str, limit: int = 5) -> list[dict[str, Any]]:
-        normalized_query = self._normalize_ui_text(query)
+        normalized_query = _service_utils.normalize_ui_text(query)
         if not normalized_query:
             return []
         candidate_pool = self._list_recent_tasks(
@@ -2262,7 +2225,7 @@ class DaemonService:
         deduped_candidates: list[dict[str, Any]] = []
         row_by_task_id: dict[str, dict[str, Any]] = {}
         for row in candidate_pool:
-            task_id = self._task_row_id(row)
+            task_id = _service_utils.task_row_id(row)
             if not task_id or task_id in row_by_task_id:
                 continue
             row_by_task_id[task_id] = row
@@ -2291,7 +2254,7 @@ class DaemonService:
         for item in raw_results:
             if not isinstance(item, dict):
                 continue
-            task_id = self._normalize_task_id_token(item.get("task_id"))
+            task_id = _service_utils.normalize_task_id_token(item.get("task_id"))
             if not task_id or task_id in seen or task_id not in row_by_task_id:
                 continue
             score_raw = item.get("score")
@@ -2307,7 +2270,7 @@ class DaemonService:
                 continue
             row = dict(row_by_task_id[task_id])
             row["relevance_score"] = score
-            reason = self._compact_prompt_text(item.get("reason", ""), max_len=120)
+            reason = _service_utils.compact_prompt_text(item.get("reason", ""), max_len=120)
             if reason:
                 row["relevance_reason"] = reason
             out.append(row)
@@ -2333,19 +2296,19 @@ class DaemonService:
             )
             if candidates:
                 self._log(
-                    f"resume_search llm_ok chat_id={chat_id} query={self._compact_prompt_text(query, max_len=80)!r} "
+                    f"resume_search llm_ok chat_id={chat_id} query={_service_utils.compact_prompt_text(query, max_len=80)!r} "
                     f"count={len(candidates)} threshold={self.task_search_llm_min_score}"
                 )
                 return candidates
             self._log(
                 f"WARN: resume_search llm_empty_or_failed chat_id={chat_id} "
-                f"query={self._compact_prompt_text(query, max_len=80)!r}; fallback=code"
+                f"query={_service_utils.compact_prompt_text(query, max_len=80)!r}; fallback=code"
             )
         return self._search_task_candidates(chat_id=chat_id, query=query, limit=effective_limit)
 
     def _search_task_candidates(self, chat_id: int, query: str, limit: int = 5) -> list[dict[str, Any]]:
         task_root = self._task_root_for_chat(chat_id)
-        normalized_query = self._normalize_ui_text(query)
+        normalized_query = _service_utils.normalize_ui_text(query)
         if not normalized_query:
             return []
 
@@ -2368,11 +2331,11 @@ class DaemonService:
                 for item in related:
                     if not isinstance(item, dict):
                         continue
-                    candidate_task_id = self._normalize_task_id_token(item.get("task_id"))
+                    candidate_task_id = _service_utils.normalize_task_id_token(item.get("task_id"))
                     if not candidate_task_id:
-                        thread_id = self._compact_prompt_text(item.get("thread_id", ""), max_len=200)
+                        thread_id = _service_utils.compact_prompt_text(item.get("thread_id", ""), max_len=200)
                         if thread_id:
-                            candidate_task_id = self._normalize_task_id_token(f"thread_{thread_id}")
+                            candidate_task_id = _service_utils.normalize_task_id_token(f"thread_{thread_id}")
                     if not candidate_task_id:
                         msg_id = int(item.get("message_id", 0) or 0)
                         if msg_id > 0:
@@ -2382,7 +2345,7 @@ class DaemonService:
                     row = self._load_task_row(chat_id=chat_id, task_id=candidate_task_id, include_instrunction=False)
                     if not row:
                         continue
-                    resolved_id = self._task_row_id(row) or candidate_task_id
+                    resolved_id = _service_utils.task_row_id(row) or candidate_task_id
                     seen_ids.add(resolved_id)
                     results.append(row)
                     if len(results) >= limit:
@@ -2409,7 +2372,7 @@ class DaemonService:
         for row in rows:
             if not isinstance(row, dict):
                 continue
-            task_id = self._task_row_id(row)
+            task_id = _service_utils.task_row_id(row)
             if not task_id or task_id in seen_ids:
                 continue
             seen_ids.add(task_id)
@@ -2419,14 +2382,14 @@ class DaemonService:
         return results[:limit]
 
     def _resolve_task_choice(self, text: str, candidates: list[str], candidate_map: dict[str, str] | None = None) -> str:
-        normalized = self._normalize_ui_text(text)
+        normalized = _service_utils.normalize_ui_text(text)
         if not normalized:
             return ""
-        candidate_ids = [self._normalize_task_id_token(v) for v in candidates]
+        candidate_ids = [_service_utils.normalize_task_id_token(v) for v in candidates]
         candidate_ids = [v for v in candidate_ids if v]
         map_raw = candidate_map if isinstance(candidate_map, dict) else {}
         normalized_map = {
-            self._normalize_ui_text(str(k)): self._normalize_task_id_token(v)
+            _service_utils.normalize_ui_text(str(k)): _service_utils.normalize_task_id_token(v)
             for k, v in map_raw.items()
         }
 
@@ -2438,10 +2401,10 @@ class DaemonService:
             idx = int(idx_match.group(1))
             if 1 <= idx <= len(candidate_ids):
                 return str(candidate_ids[idx - 1])
-        direct_task_id = self._normalize_task_id_token(normalized)
+        direct_task_id = _service_utils.normalize_task_id_token(normalized)
         if direct_task_id and direct_task_id in candidate_ids:
             return direct_task_id
-        direct_msg_id = self._extract_msg_id_token(normalized)
+        direct_msg_id = _service_utils.extract_msg_id_token(normalized)
         if direct_msg_id > 0:
             direct_msg_task = f"msg_{direct_msg_id}"
             if direct_msg_task in candidate_ids:
@@ -2453,29 +2416,29 @@ class DaemonService:
         return ""
 
     def _set_selected_task_state(self, chat_id: int, state: dict[str, Any], row: dict[str, Any]) -> None:
-        task_id = self._task_row_id(row)
+        task_id = _service_utils.task_row_id(row)
         if not task_id:
             msg_id = int(row.get("message_id", 0) or 0)
             if msg_id > 0:
                 task_id = f"msg_{msg_id}"
-        status = self._compact_prompt_text(row.get("work_status", "") or row.get("status", ""), max_len=28) or "unknown"
-        ops_status = self._compact_prompt_text(row.get("ops_status", ""), max_len=28) or "unknown"
-        title = self._compact_prompt_text(
+        status = _service_utils.compact_prompt_text(row.get("work_status", "") or row.get("status", ""), max_len=28) or "unknown"
+        ops_status = _service_utils.compact_prompt_text(row.get("ops_status", ""), max_len=28) or "unknown"
+        title = _service_utils.compact_prompt_text(
             row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
             max_len=120,
         ) or "(제목 없음)"
-        subtitle = self._compact_prompt_text(
+        subtitle = _service_utils.compact_prompt_text(
             row.get("display_subtitle", "") or row.get("result_summary_short", "") or row.get("instruction_short", ""),
             max_len=220,
         )
-        instruction = self._compact_prompt_text(row.get("instruction", ""), max_len=220) or "(지시 없음)"
-        latest_change = self._compact_prompt_text(row.get("latest_change", ""), max_len=240)
-        recent_ts = self._compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19)
+        instruction = _service_utils.compact_prompt_text(row.get("instruction", ""), max_len=220) or "(지시 없음)"
+        latest_change = _service_utils.compact_prompt_text(row.get("latest_change", ""), max_len=240)
+        recent_ts = _service_utils.compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19)
         related_ids = row.get("related_task_ids", [])
         if not isinstance(related_ids, list):
             related_ids = []
-        related_text = ", ".join(self._compact_prompt_text(v, max_len=100) for v in related_ids[:8] if str(v).strip())
-        task_thread_id = self._compact_prompt_text(row.get("thread_id", ""), max_len=200)
+        related_text = ", ".join(_service_utils.compact_prompt_text(v, max_len=100) for v in related_ids[:8] if str(v).strip())
+        task_thread_id = _service_utils.compact_prompt_text(row.get("thread_id", ""), max_len=200)
         if not task_thread_id and task_id and task_id.startswith("thread_"):
             task_thread_id = task_id[len("thread_") :]
         if not task_thread_id and task_id:
@@ -2525,25 +2488,25 @@ class DaemonService:
         if not rows:
             return ""
 
-        selected_task_id = self._normalize_task_id_token(state.get("selected_task_id"))
+        selected_task_id = _service_utils.normalize_task_id_token(state.get("selected_task_id"))
         anchor_task_id = ""
         if selected_task_id:
             for row in rows:
-                row_task_id = self._task_row_id(row)
+                row_task_id = _service_utils.task_row_id(row)
                 if row_task_id == selected_task_id:
                     anchor_task_id = selected_task_id
                     break
         if not anchor_task_id and rows:
-            anchor_task_id = self._task_row_id(rows[0])
+            anchor_task_id = _service_utils.task_row_id(rows[0])
         if not anchor_task_id:
             return ""
 
         anchor_row = self._load_task_row(chat_id=chat_id, task_id=anchor_task_id, include_instrunction=True) or {}
         instruction_text = str(anchor_row.get("instruction_text") or "").strip()
-        instruction_short = self._compact_prompt_text(anchor_row.get("instruction", ""), max_len=220)
-        anchor_title = self._compact_prompt_text(anchor_row.get("display_title", ""), max_len=120)
-        anchor_subtitle = self._compact_prompt_text(anchor_row.get("display_subtitle", ""), max_len=160)
-        latest_change = self._compact_prompt_text(anchor_row.get("latest_change", ""), max_len=220)
+        instruction_short = _service_utils.compact_prompt_text(anchor_row.get("instruction", ""), max_len=220)
+        anchor_title = _service_utils.compact_prompt_text(anchor_row.get("display_title", ""), max_len=120)
+        anchor_subtitle = _service_utils.compact_prompt_text(anchor_row.get("display_subtitle", ""), max_len=160)
+        latest_change = _service_utils.compact_prompt_text(anchor_row.get("latest_change", ""), max_len=220)
 
         target_lines = max(10, int(self.new_task_summary_lines))
         lines: list[str] = [
@@ -2563,7 +2526,7 @@ class DaemonService:
 
         if instruction_text:
             for raw in instruction_text.splitlines():
-                compact = self._compact_prompt_text(raw, max_len=180)
+                compact = _service_utils.compact_prompt_text(raw, max_len=180)
                 if not compact:
                     continue
                 lines.append(compact)
@@ -2573,18 +2536,18 @@ class DaemonService:
         lines.append("")
         lines.append("[최근 TASK 흐름]")
         for row in rows:
-            row_task_id = self._task_row_id(row) or "(unknown)"
-            work_status = self._compact_prompt_text(row.get("work_status", "") or row.get("status", ""), max_len=24) or "unknown"
-            ops_status = self._compact_prompt_text(row.get("ops_status", ""), max_len=24) or "unknown"
-            title = self._compact_prompt_text(
+            row_task_id = _service_utils.task_row_id(row) or "(unknown)"
+            work_status = _service_utils.compact_prompt_text(row.get("work_status", "") or row.get("status", ""), max_len=24) or "unknown"
+            ops_status = _service_utils.compact_prompt_text(row.get("ops_status", ""), max_len=24) or "unknown"
+            title = _service_utils.compact_prompt_text(
                 row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
                 max_len=70,
             ) or "(제목 없음)"
-            subtitle = self._compact_prompt_text(
+            subtitle = _service_utils.compact_prompt_text(
                 row.get("display_subtitle", "") or row.get("result_summary_short", ""),
                 max_len=56,
             )
-            recent_ts = self._compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
+            recent_ts = _service_utils.compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19) or "-"
             if subtitle:
                 lines.append(f"- {row_task_id} | {title} | {subtitle} | {work_status}/{ops_status} | {recent_ts}")
             else:
@@ -2673,8 +2636,8 @@ class DaemonService:
 
         for _, _, raw in filtered:
             msg_type = str(raw.get("type") or "").strip().lower() or "user"
-            ts_text = self._compact_prompt_text(raw.get("timestamp", ""), max_len=19) or "-"
-            text = self._compact_prompt_text(raw.get("text", ""), max_len=180)
+            ts_text = _service_utils.compact_prompt_text(raw.get("timestamp", ""), max_len=19) or "-"
+            text = _service_utils.compact_prompt_text(raw.get("text", ""), max_len=180)
 
             files = raw.get("files")
             file_count = len(files) if isinstance(files, list) else 0
@@ -2695,7 +2658,7 @@ class DaemonService:
             if msg_type == "bot":
                 speaker = "BOT"
             else:
-                name = self._compact_prompt_text(raw.get("first_name", ""), max_len=20) or self._compact_prompt_text(
+                name = _service_utils.compact_prompt_text(raw.get("first_name", ""), max_len=20) or _service_utils.compact_prompt_text(
                     raw.get("username", ""), max_len=20
                 )
                 speaker = f"USER({name})" if name else "USER"
@@ -2712,7 +2675,7 @@ class DaemonService:
 
         target_thread_id = str(state.get("resume_target_thread_id") or "").strip()
         current_thread_id = str(state.get("thread_id") or "").strip()
-        selected_task_id = self._normalize_task_id_token(state.get("selected_task_id"))
+        selected_task_id = _service_utils.normalize_task_id_token(state.get("selected_task_id"))
         state["resume_thread_switch_pending"] = False
         state["resume_target_thread_id"] = ""
 
@@ -2770,7 +2733,7 @@ class DaemonService:
         item: dict[str, Any],
     ) -> bool:
         msg_id = int(item.get("message_id", 0) or 0)
-        text = self._normalize_ui_text(str(item.get("text", "")))
+        text = _service_utils.normalize_ui_text(str(item.get("text", "")))
         callback_selected_task_id = self._extract_callback_task_select_id(text)
         if msg_id <= 0 or not text:
             return False
@@ -2822,7 +2785,7 @@ class DaemonService:
                     parse_mode="HTML",
                 )
                 for idx, row in enumerate(rows, start=1):
-                    row_task_id = self._task_row_id(row)
+                    row_task_id = _service_utils.task_row_id(row)
                     if not row_task_id:
                         continue
                     item_text = self._render_task_item_card_text(idx=idx, row=row)
@@ -2885,7 +2848,7 @@ class DaemonService:
                     parse_mode="HTML",
                 )
                 sent = bool(sent or sent_header)
-                chunks = self._split_text_chunks(guide_text, max_chars=DEFAULT_TASK_GUIDE_TELEGRAM_CHUNK_CHARS)
+                chunks = _service_utils.split_text_chunks(guide_text, max_chars=DEFAULT_TASK_GUIDE_TELEGRAM_CHUNK_CHARS)
                 total_chunks = len(chunks)
                 for idx, chunk in enumerate(chunks, start=1):
                     chunk_label = f"TASK 지침 내용 ({idx}/{total_chunks})"
@@ -3078,7 +3041,7 @@ class DaemonService:
                     parse_mode="HTML",
                 )
                 for idx, row in enumerate(candidates, start=1):
-                    row_task_id = self._task_row_id(row)
+                    row_task_id = _service_utils.task_row_id(row)
                     if not row_task_id:
                         continue
                     item_text = self._render_task_item_card_text(idx=idx, row=row)
@@ -3203,7 +3166,7 @@ class DaemonService:
                 parse_mode="HTML",
             )
             for idx, row in enumerate(candidates, start=1):
-                row_task_id = self._task_row_id(row)
+                row_task_id = _service_utils.task_row_id(row)
                 if not row_task_id:
                     continue
                 item_text = self._render_task_item_card_text(idx=idx, row=row)
@@ -3232,11 +3195,11 @@ class DaemonService:
 
         if current_mode == UI_MODE_AWAITING_RESUME_CHOICE:
             candidate_ids = [
-                self._normalize_task_id_token(v)
+                _service_utils.normalize_task_id_token(v)
                 for v in (state.get("resume_candidates") or [])
             ]
             candidate_ids = [v for v in candidate_ids if v]
-            candidate_buttons = [self._normalize_ui_text(v) for v in (state.get("resume_candidate_buttons") or []) if self._normalize_ui_text(v)]
+            candidate_buttons = [_service_utils.normalize_ui_text(v) for v in (state.get("resume_candidate_buttons") or []) if _service_utils.normalize_ui_text(v)]
             candidate_map_raw = state.get("resume_candidate_map") if isinstance(state.get("resume_candidate_map"), dict) else {}
             inline_only = bool(state.get("resume_choice_inline_only"))
             if callback_selected_task_id:
@@ -3256,7 +3219,14 @@ class DaemonService:
                     keyboard_rows = None
                 else:
                     reply_text = "후보 버튼을 누르거나, 번호(1,2,3...)를 입력해 주세요."
-                    keyboard_rows = self._build_candidate_keyboard_rows(candidate_buttons) if candidate_buttons else self._main_menu_keyboard_rows()
+                    keyboard_rows = (
+                        _service_utils.build_candidate_keyboard_rows(
+                            candidate_buttons,
+                            main_menu_rows=self._main_menu_keyboard_rows(),
+                        )
+                        if candidate_buttons
+                        else self._main_menu_keyboard_rows()
+                    )
                 sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
                 if sent:
                     self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
@@ -3265,7 +3235,14 @@ class DaemonService:
             row = self._load_task_row(chat_id=chat_id, task_id=selected_task_id, include_instrunction=False)
             if not row:
                 reply_text = f"{selected_task_id} TASK를 찾지 못했습니다. 다시 선택해 주세요."
-                keyboard_rows = None if inline_only else (self._build_candidate_keyboard_rows(candidate_buttons) if candidate_buttons else self._main_menu_keyboard_rows())
+                keyboard_rows = None if inline_only else (
+                    _service_utils.build_candidate_keyboard_rows(
+                        candidate_buttons,
+                        main_menu_rows=self._main_menu_keyboard_rows(),
+                    )
+                    if candidate_buttons
+                    else self._main_menu_keyboard_rows()
+                )
                 sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
                 if sent:
                     self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
@@ -3405,7 +3382,7 @@ class DaemonService:
                 state["temp_task_first_message_id"] = msg_id
                 state["temp_task_first_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 self._set_ui_mode(state, UI_MODE_AWAITING_TEMP_TASK_DECISION)
-                prompt_seed = self._escape_telegram_html(self._compact_prompt_text(text, max_len=120))
+                prompt_seed = self._escape_telegram_html(_service_utils.compact_prompt_text(text, max_len=120))
                 reply_text = (
                     f"말씀하신 내용(<code>{prompt_seed}</code>)을 기준으로 시작할게요.\n"
                     "새 TASK로 시작할지, 기존 TASK를 이어갈지 선택해 주세요."
@@ -3456,8 +3433,8 @@ class DaemonService:
                 {
                     "message_id": msg_id,
                     "chat_id": chat_id,
-                    "text": self._compact_prompt_text(
-                        self._strip_new_command_prefix(str(msg.get("text", ""))),
+                    "text": _service_utils.compact_prompt_text(
+                        _service_utils.strip_new_command_prefix(str(msg.get("text", ""))),
                         max_len=320,
                     ),
                     "files": files,
@@ -3490,8 +3467,8 @@ class DaemonService:
             return {}
         out: dict[str, str] = {}
         for raw_task_id, raw_thread_id in loaded.items():
-            task_id = self._normalize_task_id_token(raw_task_id)
-            thread_id = self._compact_prompt_text(raw_thread_id, max_len=200)
+            task_id = _service_utils.normalize_task_id_token(raw_task_id)
+            thread_id = _service_utils.compact_prompt_text(raw_thread_id, max_len=200)
             if not task_id or not thread_id:
                 continue
             out[task_id] = thread_id
@@ -3502,8 +3479,8 @@ class DaemonService:
         path.parent.mkdir(parents=True, exist_ok=True)
         normalized: dict[str, str] = {}
         for raw_task_id, raw_thread_id in (mapping or {}).items():
-            task_id = self._normalize_task_id_token(raw_task_id)
-            thread_id = self._compact_prompt_text(raw_thread_id, max_len=200)
+            task_id = _service_utils.normalize_task_id_token(raw_task_id)
+            thread_id = _service_utils.compact_prompt_text(raw_thread_id, max_len=200)
             if not task_id or not thread_id:
                 continue
             normalized[task_id] = thread_id
@@ -3519,15 +3496,15 @@ class DaemonService:
                     pass
 
     def _lookup_mapped_thread_id(self, chat_id: int, task_id: str) -> str:
-        normalized_task_id = self._normalize_task_id_token(task_id)
+        normalized_task_id = _service_utils.normalize_task_id_token(task_id)
         if not normalized_task_id:
             return ""
         mapping = self._load_legacy_task_thread_map(chat_id)
-        return self._compact_prompt_text(mapping.get(normalized_task_id, ""), max_len=200)
+        return _service_utils.compact_prompt_text(mapping.get(normalized_task_id, ""), max_len=200)
 
     def _bind_task_thread_mapping(self, chat_id: int, task_id: str, thread_id: str) -> None:
-        normalized_task_id = self._normalize_task_id_token(task_id)
-        normalized_thread_id = self._compact_prompt_text(thread_id, max_len=200)
+        normalized_task_id = _service_utils.normalize_task_id_token(task_id)
+        normalized_thread_id = _service_utils.compact_prompt_text(thread_id, max_len=200)
         if not normalized_task_id or not normalized_thread_id:
             return
         mapping = self._load_legacy_task_thread_map(chat_id)
@@ -3559,7 +3536,7 @@ class DaemonService:
             ref_entries: list[str] = []
             for item in pending_messages:
                 msg_id = int(item.get("message_id", 0))
-                text = self._compact_prompt_text(item.get("text", ""), max_len=320)
+                text = _service_utils.compact_prompt_text(item.get("text", ""), max_len=320)
                 if not text:
                     text = "(텍스트 없음, 첨부/위치 정보 참고)"
                 request_entries.append(f"[msg_{msg_id}] {text}")
@@ -3569,7 +3546,7 @@ class DaemonService:
                 if isinstance(files_raw, list):
                     for f in files_raw:
                         if isinstance(f, dict):
-                            file_type = self._compact_prompt_text(f.get("type", ""), max_len=30)
+                            file_type = _service_utils.compact_prompt_text(f.get("type", ""), max_len=30)
                             if file_type:
                                 file_types.append(file_type)
                 file_types = sorted(set(file_types))
@@ -3633,7 +3610,7 @@ class DaemonService:
                 continue
             if msg_id > 0:
                 source_message_ids.add(msg_id)
-            instruction = self._compact_prompt_text(item.get("text", ""), max_len=1200)
+            instruction = _service_utils.compact_prompt_text(item.get("text", ""), max_len=1200)
             if not instruction:
                 instruction = "(텍스트 없음, 첨부/위치 정보 참고)"
             query_tokens.append(instruction)
@@ -3660,7 +3637,7 @@ class DaemonService:
             active_task_ids: set[str] = state.get("active_task_ids") or set()
             active_task_ids.add(task_id)
             state["active_task_ids"] = active_task_ids
-            selected_task_id = self._normalize_task_id_token(state.get("selected_task_id"))
+            selected_task_id = _service_utils.normalize_task_id_token(state.get("selected_task_id"))
             if selected_task_id:
                 self._bind_task_thread_mapping(
                     chat_id=chat_id,
@@ -3699,9 +3676,9 @@ class DaemonService:
         sent_ok: bool,
     ) -> None:
         normalized_task_ids = {
-            self._normalize_task_id_token(v)
+            _service_utils.normalize_task_id_token(v)
             for v in (task_ids or set())
-            if self._normalize_task_id_token(v)
+            if _service_utils.normalize_task_id_token(v)
         }
         if not normalized_task_ids:
             return
@@ -3709,7 +3686,7 @@ class DaemonService:
         if task_skill is None:
             return
         task_root = self._task_root_for_chat(chat_id)
-        summary = self._compact_prompt_text(result_text, max_len=500)
+        summary = _service_utils.compact_prompt_text(result_text, max_len=500)
         if status == "completed":
             if sent_ok:
                 note = "app-server turn 완료 후 텔레그램 최종 답변 전송"
@@ -3770,7 +3747,7 @@ class DaemonService:
                 continue
             if row_chat_id != int(chat_id):
                 continue
-            msg_text = self._compact_prompt_text(self._strip_new_command_prefix(str(raw.get("text", ""))), max_len=220)
+            msg_text = _service_utils.compact_prompt_text(_service_utils.strip_new_command_prefix(str(raw.get("text", ""))), max_len=220)
             if not msg_text:
                 continue
             msg_id = raw.get("message_id")
@@ -3788,23 +3765,23 @@ class DaemonService:
 
     def _build_agent_rewriter_input(self, chat_id: int, state: dict[str, Any], raw_text: str) -> str:
         user_hint = self._load_latest_user_hint(chat_id=chat_id, state=state)
-        selected_task_id = self._normalize_task_id_token(state.get("selected_task_id"))
+        selected_task_id = _service_utils.normalize_task_id_token(state.get("selected_task_id"))
         lines = [
             "아래 원문 안내를 지침에 맞는 사용자 진행 안내문으로 재작성하라.",
             f"- 최근 사용자 요청: {user_hint or '(없음)'}",
             f"- 선택된 TASK 식별자: {selected_task_id or '(없음)'}",
             "- 출력 형식: 텔레그램 HTML 파싱 기준(필요 시 <b>, <code>만 최소 사용, Markdown 문법 금지)",
             "- 원문 안내:",
-            self._compact_prompt_text(raw_text, max_len=1200) or "(비어 있음)",
+            _service_utils.compact_prompt_text(raw_text, max_len=1200) or "(비어 있음)",
             "",
             "결과 문장만 출력하라.",
         ]
         return "\n".join(lines).strip()
 
     def _build_agent_rewriter_fallback(self, chat_id: int, state: dict[str, Any], raw_text: str) -> str:
-        user_hint = self._compact_prompt_text(self._load_latest_user_hint(chat_id=chat_id, state=state), max_len=56)
+        user_hint = _service_utils.compact_prompt_text(self._load_latest_user_hint(chat_id=chat_id, state=state), max_len=56)
         if not user_hint:
-            raw_compact = self._compact_prompt_text(raw_text, max_len=56)
+            raw_compact = _service_utils.compact_prompt_text(raw_text, max_len=56)
             if raw_compact and not self._contains_internal_agent_text(raw_compact):
                 user_hint = raw_compact
         if user_hint:
@@ -3824,7 +3801,7 @@ class DaemonService:
         normalized = re.sub(r"^\s*(재작성 결과[:：]\s*)", "", normalized, flags=re.IGNORECASE)
         normalized = re.sub(r"\s+\n", "\n", normalized)
         normalized = re.sub(r"\n{3,}", "\n\n", normalized)
-        return self._compact_prompt_text(normalized, max_len=700)
+        return _service_utils.compact_prompt_text(normalized, max_len=700)
 
     def _rewriter_is_running(self) -> bool:
         return self.rewriter_proc is not None and self.rewriter_proc.poll() is None
@@ -5124,7 +5101,7 @@ class DaemonService:
             result_text=final_text,
             sent_ok=sent_ok,
         )
-        selected_task_id = self._normalize_task_id_token(state.get("selected_task_id"))
+        selected_task_id = _service_utils.normalize_task_id_token(state.get("selected_task_id"))
         if selected_task_id and thread_id:
             self._bind_task_thread_mapping(
                 chat_id=chat_id,
@@ -5657,5 +5634,6 @@ class DaemonService:
             self._release_lock()
             self._log("Daemon stopped")
         return 0
+
 
 

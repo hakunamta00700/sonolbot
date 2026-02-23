@@ -22,9 +22,9 @@ Progress
 - [x] Mark phase complete in this TODO and commit
 
 ## 3) Phase 2: Utility boundary cleanup
-- [ ] Move small utilities to shared modules where possible (string/env helpers)
+- [x] Move small utilities to shared modules where possible (string/env helpers)
 - [x] Remove duplicated `_env_*` parsing wrappers if no longer needed
-- [ ] Mark phase complete in this TODO and commit
+- [x] Mark phase complete in this TODO and commit
 
 ## 4) Risk sweep
 - [ ] Re-check edge cases: env parsing, parse mode fallback, path resolution
