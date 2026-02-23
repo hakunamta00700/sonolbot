@@ -27,6 +27,6 @@ Rules
 - [ ] P3-3: Run syntax check and commit
 
 ## 4) Phase 4: Risk sweep
-- [ ] R1: Re-check env/parse-mode startup edges (including missing/invalid prompt files)
+- [x] R1: Re-check env/parse-mode startup edges (including missing/invalid prompt files)
 - [ ] R2: Re-check exception paths around persistence/logging startup
 - [ ] R3: Final checklist + commit
