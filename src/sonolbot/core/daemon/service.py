@@ -4,7 +4,7 @@ from __future__ import annotations
 from sonolbot.core.daemon.runtime_shared import *
 from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.service_config import DaemonServiceConfig
-from sonolbot.core.daemon.service_task import DaemonServiceTaskMixin
+from sonolbot.core.daemon.service_task import DaemonServiceTaskMixin, DaemonServiceTaskRuntime
 from sonolbot.core.daemon.service_app import DaemonServiceAppMixin, DaemonServiceAppRuntime
 from sonolbot.core.daemon.service_lease import DaemonServiceLeaseMixin, DaemonServiceLeaseRuntime
 from sonolbot.core.daemon.service_rewriter import DaemonServiceRewriterMixin
@@ -20,6 +20,7 @@ class DaemonService(
     def __init__(
         self,
         *,
+        task_runtime: DaemonServiceTaskRuntime | None = None,
         app_runtime: DaemonServiceAppRuntime | None = None,
         lease_runtime: DaemonServiceLeaseRuntime | None = None,
         rewriter_runtime: DaemonServiceRewriterRuntime | None = None,
@@ -31,7 +32,6 @@ class DaemonService(
         self.codex_run_meta: Optional[dict[str, object]] = None
         self._telegram_runtime: Optional[dict[str, object]] = None
         self._telegram_skill = None
-        self._task_skill = None
         self.stop_requested = False
 
         self.env = os.environ.copy()
@@ -51,6 +51,7 @@ class DaemonService(
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.chat_locks_dir.mkdir(parents=True, exist_ok=True)
         self.agent_rewriter_workspace.mkdir(parents=True, exist_ok=True)
+        self._init_task_runtime(task_runtime)
         self._init_app_runtime(app_runtime)
         self._init_lease_runtime(lease_runtime)
         self._harden_sensitive_permissions()

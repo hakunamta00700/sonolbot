@@ -3,17 +3,40 @@
 from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.runtime_shared import *
 
+class DaemonServiceTaskRuntime:
+    def __init__(self, service: Any) -> None:
+        self.service = service
+        self.task_skill: Any = None
+
+
 class DaemonServiceTaskMixin:
+    def _init_task_runtime(self, task_runtime: DaemonServiceTaskRuntime | None = None) -> None:
+        runtime: DaemonServiceTaskRuntime
+        if task_runtime is None:
+            runtime = DaemonServiceTaskRuntime(self)
+        else:
+            runtime = task_runtime
+        self._task_runtime_component = runtime
+
+    def _get_task_runtime(self) -> DaemonServiceTaskRuntime | None:
+        runtime = getattr(self, "_task_runtime_component", None)
+        if isinstance(runtime, DaemonServiceTaskRuntime):
+            return runtime
+        return None
+
     def _get_task_skill(self) -> object | None:
-        if self._task_skill is not None:
-            return self._task_skill
+        runtime = self._get_task_runtime()
+        if runtime is None:
+            return None
+        if runtime.task_skill is not None:
+            return runtime.task_skill
         try:
             skill = get_task_skill()
         except Exception as exc:
             self._log(f"WARN: task skill init failed: {exc}")
             return None
-        self._task_skill = skill
-        return skill
+        runtime.task_skill = skill
+        return runtime.task_skill
 
     def _run_task_commands_json(self, args: list[str], timeout_sec: float = 25.0) -> dict[str, Any] | None:
         cmd = [self.python_bin, "-m", "sonolbot.tools.task_commands", *args]
