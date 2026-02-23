@@ -18,11 +18,11 @@ Rules
 - [x] R1-4: Run syntax check and commit
 
 ## 2) Telegram transport helper consolidation (Priority 2)
-- [ ] R2-1: Add internal `_telegram_send_text_once(...)` helper for raw payload send attempts
+- [x] R2-1: Add internal `_telegram_send_text_once(...)` helper for raw payload send attempts
   - Single place for API fallback attempts (`send_text_*` family), including `TypeError` fallback and `exc` logging
   - Keep exact semantics for parse-mode selection and parse-fallback behavior
-- [ ] R2-2: Refactor `_telegram_send_text` and `_telegram_edit_message_text` to call the new helper
-- [ ] R2-3: Run syntax check and commit
+- [x] R2-2: Refactor `_telegram_send_text` and `_telegram_edit_message_text` to call the new helper
+- [x] R2-3: Run syntax check and commit
 
 ## 3) Final validation checklist
 - [ ] R3-1: Quick consistency pass for variable naming around control finalization

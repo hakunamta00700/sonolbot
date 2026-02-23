@@ -1415,6 +1415,117 @@ class DaemonService:
                 continue
         return 0.0
 
+    def _telegram_send_text_once(
+        self,
+        runtime: dict[str, Any],
+        telegram: Any,
+        chat_id: int,
+        text: str,
+        request_max_attempts: int = 1,
+        keyboard_rows: list[list[str]] | None = None,
+        inline_keyboard_rows: list[list[dict[str, str]]] | None = None,
+        message_id: int | None = None,
+        parse_mode: str | None = None,
+    ) -> bool:
+        payload_text = self._sanitize_telegram_text_for_parse_mode(text, parse_mode)
+        action = "edit" if message_id else "send"
+        target = f" message_id={message_id}" if message_id else ""
+        try:
+            if message_id is not None:
+                try:
+                    return bool(
+                        telegram.edit_message_text(
+                            runtime,
+                            chat_id=int(chat_id),
+                            message_id=int(message_id),
+                            text=payload_text,
+                            inline_keyboard_rows=inline_keyboard_rows,
+                            request_max_attempts=request_max_attempts,
+                            parse_mode=parse_mode,
+                        )
+                    )
+                except TypeError:
+                    return bool(
+                        telegram.edit_message_text(
+                            runtime,
+                            chat_id=int(chat_id),
+                            message_id=int(message_id),
+                            text=payload_text,
+                            inline_keyboard_rows=inline_keyboard_rows,
+                            request_max_attempts=request_max_attempts,
+                        )
+                    )
+            if inline_keyboard_rows and hasattr(telegram, "send_text_with_inline_keyboard"):
+                try:
+                    return bool(
+                        telegram.send_text_with_inline_keyboard(
+                            runtime,
+                            chat_id=int(chat_id),
+                            text=payload_text,
+                            inline_keyboard_rows=inline_keyboard_rows,
+                            request_max_attempts=request_max_attempts,
+                            parse_mode=parse_mode,
+                        )
+                    )
+                except TypeError:
+                    return bool(
+                        telegram.send_text_with_inline_keyboard(
+                            runtime,
+                            chat_id=int(chat_id),
+                            text=payload_text,
+                            inline_keyboard_rows=inline_keyboard_rows,
+                            request_max_attempts=request_max_attempts,
+                        )
+                    )
+            if keyboard_rows and hasattr(telegram, "send_text_with_keyboard"):
+                try:
+                    return bool(
+                        telegram.send_text_with_keyboard(
+                            runtime,
+                            chat_id=int(chat_id),
+                            text=payload_text,
+                            keyboard_rows=keyboard_rows,
+                            resize_keyboard=True,
+                            one_time_keyboard=False,
+                            request_max_attempts=request_max_attempts,
+                            parse_mode=parse_mode,
+                        )
+                    )
+                except TypeError:
+                    return bool(
+                        telegram.send_text_with_keyboard(
+                            runtime,
+                            chat_id=int(chat_id),
+                            text=payload_text,
+                            keyboard_rows=keyboard_rows,
+                            resize_keyboard=True,
+                            one_time_keyboard=False,
+                            request_max_attempts=request_max_attempts,
+                        )
+                    )
+            try:
+                return bool(
+                    telegram.send_text_raw(
+                        runtime,
+                        chat_id=int(chat_id),
+                        text=payload_text,
+                        request_max_attempts=request_max_attempts,
+                        parse_mode=parse_mode,
+                    )
+                )
+            except TypeError:
+                return bool(
+                    telegram.send_text_raw(
+                        runtime,
+                        chat_id=int(chat_id),
+                        text=payload_text,
+                        request_max_attempts=request_max_attempts,
+                    )
+                )
+        except Exception as exc:
+            self._log(f"WARN: telegram {action} failed chat_id={chat_id}{target}: {exc}")
+            return False
+
     def _telegram_send_text(
         self,
         chat_id: int,
@@ -1429,82 +1540,16 @@ class DaemonService:
             return False
         effective_parse_mode = self._resolve_telegram_parse_mode(parse_mode)
         normalized_text = self._sanitize_telegram_text_for_parse_mode(text, effective_parse_mode)
-
-        def _send_once(current_parse_mode: str | None) -> bool:
-            payload_text = self._sanitize_telegram_text_for_parse_mode(normalized_text, current_parse_mode)
-            try:
-                if inline_keyboard_rows and hasattr(telegram, "send_text_with_inline_keyboard"):
-                    try:
-                        return bool(
-                            telegram.send_text_with_inline_keyboard(
-                                runtime,
-                                chat_id=int(chat_id),
-                                text=payload_text,
-                                inline_keyboard_rows=inline_keyboard_rows,
-                                request_max_attempts=request_max_attempts,
-                                parse_mode=current_parse_mode,
-                            )
-                        )
-                    except TypeError:
-                        return bool(
-                            telegram.send_text_with_inline_keyboard(
-                                runtime,
-                                chat_id=int(chat_id),
-                                text=payload_text,
-                                inline_keyboard_rows=inline_keyboard_rows,
-                                request_max_attempts=request_max_attempts,
-                            )
-                        )
-                if keyboard_rows and hasattr(telegram, "send_text_with_keyboard"):
-                    try:
-                        return bool(
-                            telegram.send_text_with_keyboard(
-                                runtime,
-                                chat_id=int(chat_id),
-                                text=payload_text,
-                                keyboard_rows=keyboard_rows,
-                                resize_keyboard=True,
-                                one_time_keyboard=False,
-                                request_max_attempts=request_max_attempts,
-                                parse_mode=current_parse_mode,
-                            )
-                        )
-                    except TypeError:
-                        return bool(
-                            telegram.send_text_with_keyboard(
-                                runtime,
-                                chat_id=int(chat_id),
-                                text=payload_text,
-                                keyboard_rows=keyboard_rows,
-                                resize_keyboard=True,
-                                one_time_keyboard=False,
-                                request_max_attempts=request_max_attempts,
-                            )
-                        )
-                try:
-                    return bool(
-                        telegram.send_text_raw(
-                            runtime,
-                            chat_id=int(chat_id),
-                            text=payload_text,
-                            request_max_attempts=request_max_attempts,
-                            parse_mode=current_parse_mode,
-                        )
-                    )
-                except TypeError:
-                    return bool(
-                        telegram.send_text_raw(
-                            runtime,
-                            chat_id=int(chat_id),
-                            text=payload_text,
-                            request_max_attempts=request_max_attempts,
-                        )
-                    )
-            except Exception as exc:
-                self._log(f"WARN: telegram send failed chat_id={chat_id}: {exc}")
-                return False
-
-        sent = _send_once(effective_parse_mode)
+        sent = self._telegram_send_text_once(
+            runtime=runtime,
+            telegram=telegram,
+            chat_id=chat_id,
+            text=normalized_text,
+            request_max_attempts=request_max_attempts,
+            keyboard_rows=keyboard_rows,
+            inline_keyboard_rows=inline_keyboard_rows,
+            parse_mode=effective_parse_mode,
+        )
         if sent:
             return True
         if effective_parse_mode and self.telegram_parse_fallback_raw_on_fail:
@@ -1530,7 +1575,16 @@ class DaemonService:
                     "WARN: telegram send retry with same parse_mode due to network error "
                     f"chat_id={chat_id} parse_mode={effective_parse_mode}"
                 )
-                return _send_once(effective_parse_mode)
+                return self._telegram_send_text_once(
+                    runtime=runtime,
+                    telegram=telegram,
+                    chat_id=chat_id,
+                    text=normalized_text,
+                    request_max_attempts=request_max_attempts,
+                    keyboard_rows=keyboard_rows,
+                    inline_keyboard_rows=inline_keyboard_rows,
+                    parse_mode=effective_parse_mode,
+                )
 
             # Only drop parse_mode when it looks like Telegram rejected the HTML entities.
             if is_parse:
@@ -1538,7 +1592,16 @@ class DaemonService:
                     "WARN: telegram send retry without parse_mode due to parse error "
                     f"chat_id={chat_id} parse_mode={effective_parse_mode}"
                 )
-                return _send_once(None)
+                return self._telegram_send_text_once(
+                    runtime=runtime,
+                    telegram=telegram,
+                    chat_id=chat_id,
+                    text=normalized_text,
+                    request_max_attempts=request_max_attempts,
+                    keyboard_rows=keyboard_rows,
+                    inline_keyboard_rows=inline_keyboard_rows,
+                    parse_mode=None,
+                )
         return False
 
     def _telegram_edit_message_text(
@@ -1557,40 +1620,16 @@ class DaemonService:
             return False
         effective_parse_mode = self._resolve_telegram_parse_mode(parse_mode)
         normalized_text = self._sanitize_telegram_text_for_parse_mode(text, effective_parse_mode)
-
-        def _edit_once(current_parse_mode: str | None) -> bool:
-            payload_text = self._sanitize_telegram_text_for_parse_mode(normalized_text, current_parse_mode)
-            try:
-                try:
-                    return bool(
-                        telegram.edit_message_text(
-                            runtime,
-                            chat_id=int(chat_id),
-                            message_id=int(message_id),
-                            text=payload_text,
-                            inline_keyboard_rows=inline_keyboard_rows,
-                            request_max_attempts=request_max_attempts,
-                            parse_mode=current_parse_mode,
-                        )
-                    )
-                except TypeError:
-                    return bool(
-                        telegram.edit_message_text(
-                            runtime,
-                            chat_id=int(chat_id),
-                            message_id=int(message_id),
-                            text=payload_text,
-                            inline_keyboard_rows=inline_keyboard_rows,
-                            request_max_attempts=request_max_attempts,
-                        )
-                    )
-            except Exception as exc:
-                self._log(
-                    f"WARN: telegram edit failed chat_id={chat_id} message_id={message_id}: {exc}"
-                )
-                return False
-
-        edited = _edit_once(effective_parse_mode)
+        edited = self._telegram_send_text_once(
+            runtime=runtime,
+            telegram=telegram,
+            chat_id=chat_id,
+            message_id=message_id,
+            text=normalized_text,
+            request_max_attempts=request_max_attempts,
+            inline_keyboard_rows=inline_keyboard_rows,
+            parse_mode=effective_parse_mode,
+        )
         if edited:
             return True
         if effective_parse_mode and self.telegram_parse_fallback_raw_on_fail:
@@ -1616,14 +1655,32 @@ class DaemonService:
                     "WARN: telegram edit retry with same parse_mode due to network error "
                     f"chat_id={chat_id} message_id={message_id} parse_mode={effective_parse_mode}"
                 )
-                return _edit_once(effective_parse_mode)
+                return self._telegram_send_text_once(
+                    runtime=runtime,
+                    telegram=telegram,
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    text=normalized_text,
+                    request_max_attempts=request_max_attempts,
+                    inline_keyboard_rows=inline_keyboard_rows,
+                    parse_mode=effective_parse_mode,
+                )
 
             if is_parse:
                 self._log(
                     "WARN: telegram edit retry without parse_mode due to parse error "
                     f"chat_id={chat_id} message_id={message_id} parse_mode={effective_parse_mode}"
                 )
-                return _edit_once(None)
+                return self._telegram_send_text_once(
+                    runtime=runtime,
+                    telegram=telegram,
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    text=normalized_text,
+                    request_max_attempts=request_max_attempts,
+                    inline_keyboard_rows=inline_keyboard_rows,
+                    parse_mode=None,
+                )
         return False
 
     def _finalize_control_message(self, chat_id: int, message_id: int, reply_text: str) -> None:
