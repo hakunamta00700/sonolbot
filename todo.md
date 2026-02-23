@@ -45,7 +45,7 @@
 - [x] 작업완료: `DaemonServiceRewriterMixin`에서 `rewriter_*` 접근을 runtime 프로퍼티로 위임 정리
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_rewriter.py src/sonolbot/core/daemon/service.py`
 - [x] 체크: `rg -n "self\\._rewriter_runtime_component|self\\.rewriter_" src/sonolbot/core/daemon/service_rewriter.py`
-- [ ] 커밋: `refactor: split rewriter runtime state and inject via host service`
+- [x] 커밋: `refactor: split rewriter runtime state and inject via host service`
 
 ## 우선순위 2: DaemonService 생성자 DI
 - [x] 작업: `src/sonolbot/core/daemon/service.py` 생성자에 `rewriter_runtime` 주입 인자 추가
