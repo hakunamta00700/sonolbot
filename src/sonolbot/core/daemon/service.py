@@ -1831,7 +1831,7 @@ class DaemonService:
                 keyboard_rows=self._main_menu_keyboard_rows(),
                 request_max_attempts=1,
             )
-            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=msg_id, reply_text=reply_text, sent=sent)
             return True
 
         target_path = self._task_agents_path(chat_id=chat_id, thread_id=target_thread_id)
@@ -1848,7 +1848,7 @@ class DaemonService:
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=msg_id, reply_text=reply_text, sent=sent)
                 return True
 
         rewritten_request = self._build_task_agents_edit_request_text(
@@ -2745,6 +2745,7 @@ class DaemonService:
         item: dict[str, Any],
     ) -> bool:
         msg_id = int(item.get("message_id", 0) or 0)
+        message_id = msg_id
         text = _service_utils.normalize_ui_text(str(item.get("text", "")))
         callback_selected_task_id = self._extract_callback_task_select_id(text)
         if msg_id <= 0 or not text:
