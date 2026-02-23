@@ -1,4 +1,4 @@
-﻿"Root multi-bot manager."
+"Root multi-bot manager."
 from __future__ import annotations
 
 from sonolbot.core.daemon.runtime_shared import *
@@ -7,7 +7,7 @@ from sonolbot.core.daemon import manager_utils as _manager_utils
 class MultiBotManager:
     """Root daemon manager that spawns one bot worker per configured token."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, logger: _ComponentLogger | None = None) -> None:
         self.root = PROJECT_ROOT
         self.logs_dir = Path(os.getenv("LOGS_DIR", str(self.root / "logs"))).resolve()
         self.pid_file = Path(
@@ -43,6 +43,10 @@ class MultiBotManager:
         )
         self._process_lock: _ProcessFileLock | None = None
         self.env = os.environ.copy()
+        self.logger = logger if logger is not None else make_component_logger(
+            log_path=self._daily_log_path,
+            component="manager",
+        )
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.workspace_root.mkdir(parents=True, exist_ok=True)
 
@@ -57,9 +61,6 @@ class MultiBotManager:
 
     def _env_float(self, name: str, default: float, minimum: float = 0.0) -> float:
         return _manager_utils.env_float(name, default, minimum=minimum)
-
-    def _log(self, message: str) -> None:
-        _log_with_loguru(message, log_path=self._daily_log_path(), component="manager")
 
     def _cleanup_logs(self) -> None:
         cutoff = datetime.now().date() - timedelta(days=self.log_retention_days - 1)
@@ -92,7 +93,7 @@ class MultiBotManager:
             self._process_lock = None
 
     def _handle_signal(self, signum: int, _frame: object) -> None:
-        self._log(f"Signal received: {signum}")
+        self.logger.info(f"Signal received: {signum}")
         self.stop_requested = True
 
     @staticmethod
@@ -133,8 +134,8 @@ class MultiBotManager:
         try:
             rewriter_workspace.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            self._log(
-                f"WARN: failed to create tmp rewriter workspace bot_id={bot.get('bot_id')} "
+            self.logger.warning(
+                f"failed to create tmp rewriter workspace bot_id={bot.get('bot_id')} "
                 f"path={rewriter_workspace}: {exc}; fallback to state dir"
             )
             env["DAEMON_AGENT_REWRITER_WORKSPACE"] = str(state_dir / "agent-rewriter-workspace")
@@ -156,7 +157,7 @@ class MultiBotManager:
                 start_new_session=(os.name != "nt"),
             )
         except Exception as exc:
-            self._log(f"ERROR: failed to spawn worker bot_id={bot_id}: {exc}")
+            self.logger.error(f"failed to spawn worker bot_id={bot_id}: {exc}")
             return
         self.workers[bot_id] = {
             "proc": proc,
@@ -166,7 +167,7 @@ class MultiBotManager:
         }
         state = self.worker_restart_state.setdefault(bot_id, {})
         state["last_spawn_at"] = time.time()
-        self._log(f"worker started bot_id={bot_id} pid={proc.pid} workspace={workspace}")
+        self.logger.info(f"worker started bot_id={bot_id} pid={proc.pid} workspace={workspace}")
 
     def _stop_worker(self, bot_id: str, reason: str) -> None:
         slot = self.workers.pop(bot_id, None)
@@ -175,7 +176,7 @@ class MultiBotManager:
         proc = slot.get("proc")
         if not isinstance(proc, subprocess.Popen):
             return
-        self._log(f"worker stopping bot_id={bot_id} pid={proc.pid} reason={reason}")
+        self.logger.info(f"worker stopping bot_id={bot_id} pid={proc.pid} reason={reason}")
         try:
             proc.terminate()
             proc.wait(timeout=4)
@@ -197,7 +198,7 @@ class MultiBotManager:
         )
         self.worker_restart_state[bot_id] = updated_state
         if backoff_sec > 0:
-            self._log(
+            self.logger.info(
                 f"worker restart delayed bot_id={bot_id} rc={rc} runtime={runtime_sec:.1f}s "
                 f"backoff={backoff_sec:.1f}s failures={fail_count}"
             )
@@ -213,7 +214,7 @@ class MultiBotManager:
         if should_log:
             state["last_skip_log_at"] = now
             self.worker_restart_state[bot_id] = state
-            self._log(
+            self.logger.info(
                 f"worker start skipped due to backoff bot_id={bot_id} "
                 f"remaining={remaining:.1f}s"
             )
@@ -247,7 +248,7 @@ class MultiBotManager:
             self.workers.pop(bot_id, None)
             started_at = float(slot.get("started_at") or 0.0)
             runtime_sec = max(0.0, time.time() - started_at) if started_at > 0 else 0.0
-            self._log(f"worker exited bot_id={bot_id} rc={rc} runtime={runtime_sec:.1f}s")
+            self.logger.info(f"worker exited bot_id={bot_id} rc={rc} runtime={runtime_sec:.1f}s")
             self._register_worker_exit(bot_id=bot_id, rc=int(rc), runtime_sec=runtime_sec)
 
         # Start missing workers.
@@ -268,7 +269,7 @@ class MultiBotManager:
 
     def run(self) -> int:
         if not shutil.which("codex"):
-            self._log("ERROR: codex CLI not found in PATH")
+            self.logger.error("codex CLI not found in PATH")
             return 1
         signal.signal(signal.SIGINT, self._handle_signal)
         if hasattr(signal, "SIGTERM"):
@@ -277,16 +278,16 @@ class MultiBotManager:
         try:
             self._acquire_lock()
         except Exception as exc:
-            self._log(f"ERROR: {exc}")
+            self.logger.error(f"{exc}")
             return 1
 
         migrated, detail = migrate_legacy_env_if_needed(self.root, self.config_path)
         if migrated:
-            self._log(f"legacy config migrated: {detail}")
+            self.logger.info(f"legacy config migrated: {detail}")
         else:
-            self._log(f"legacy migration skipped: {detail}")
+            self.logger.info(f"legacy migration skipped: {detail}")
 
-        self._log(
+        self.logger.info(
             f"manager started pid={os.getpid()} poll={self.poll_interval_sec}s "
             f"config={self.config_path} workspace_root={self.workspace_root}"
         )
@@ -299,7 +300,11 @@ class MultiBotManager:
             for bot_id in list(self.workers.keys()):
                 self._stop_worker(bot_id, "manager_shutdown")
             self._release_lock()
-            self._log("manager stopped")
+            self.logger.info("manager stopped")
         return 0
+
+
+
+
 
 

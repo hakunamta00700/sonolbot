@@ -1,4 +1,4 @@
-ï»¿from __future__ import annotations
+from __future__ import annotations
 
 from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.runtime_shared import *
@@ -35,7 +35,7 @@ class DaemonServiceTaskMixin:
         try:
             skill = get_task_skill()
         except Exception as exc:
-            self._log(f"WARN: task skill init failed: {exc}")
+            self.logger.warning(f"task skill init failed: {exc}")
             return None
         runtime.task_skill = skill
         return runtime.task_skill
@@ -53,13 +53,13 @@ class DaemonServiceTaskMixin:
                 timeout=timeout_sec,
             )
         except Exception as exc:
-            self._log(f"WARN: task command failed args={args}: {exc}")
+            self.logger.warning(f"task command failed args={args}: {exc}")
             return None
 
         stdout = str(proc.stdout or "").strip()
         stderr = str(proc.stderr or "").strip()
         if stderr:
-            self._log(f"[task_commands][stderr] {stderr}")
+            self.logger.info(f"[task_commands][stderr] {stderr}")
         if not stdout:
             return None
         try:
@@ -68,7 +68,7 @@ class DaemonServiceTaskMixin:
                 return payload
             return None
         except Exception as exc:
-            self._log(f"WARN: task command json parse failed args={args}: {exc}")
+            self.logger.warning(f"task command json parse failed args={args}: {exc}")
             return None
 
     def _task_row_recency_epoch(self, row: dict[str, Any]) -> float:
@@ -165,7 +165,7 @@ class DaemonServiceTaskMixin:
                 source_message_ids.add(msg_id)
             instruction = _service_utils.compact_prompt_text(item.get("text", ""), max_len=1200)
             if not instruction:
-                instruction = "(í…ìŠ¤íŠ¸ ì—†ìŒ, ì²¨ë¶€/ìœ„ì¹˜ ì •ë³´ ì°¸ê³ )"
+                instruction = "(ÅØ½ºÆ® ¾øÀ½, Ã·ºÎ/À§Ä¡ Á¤º¸ Âü°í)"
             query_tokens.append(instruction)
 
         if not query_tokens:
@@ -198,7 +198,7 @@ class DaemonServiceTaskMixin:
                     thread_id=thread_id,
                 )
         except Exception as exc:
-            self._log(f"WARN: task init/read failed chat_id={chat_id} task_id={task_id}: {exc}")
+            self.logger.warning(f"task init/read failed chat_id={chat_id} task_id={task_id}: {exc}")
             return ""
 
         try:
@@ -212,9 +212,9 @@ class DaemonServiceTaskMixin:
                 )
             ).strip()
         except Exception as exc:
-            self._log(f"WARN: compact task memory build failed chat_id={chat_id}: {exc}")
+            self.logger.warning(f"compact task memory build failed chat_id={chat_id}: {exc}")
             return ""
-        if not packet or packet == "ê´€ë ¨ TASKë¥¼ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.":
+        if not packet or packet == "°ü·Ã TASK¸¦ Ã£Áö ¸øÇß½À´Ï´Ù.":
             return ""
         return packet
 
@@ -242,11 +242,11 @@ class DaemonServiceTaskMixin:
         summary = _service_utils.compact_prompt_text(result_text, max_len=500)
         if status == "completed":
             if sent_ok:
-                note = "app-server turn ì™„ë£Œ í›„ í…”ë ˆê·¸ë¨ ìµœì¢… ë‹µë³€ ì „ì†¡"
+                note = "app-server turn ¿Ï·á ÈÄ ÅÚ·¹±×·¥ ÃÖÁ¾ ´äº¯ Àü¼Û"
             else:
-                note = "app-server turn ì™„ë£Œ, í…”ë ˆê·¸ë¨ ì „ì†¡ ì§€ì—°ìœ¼ë¡œ ì¬ì‹œë„ ëŒ€ê¸°"
+                note = "app-server turn ¿Ï·á, ÅÚ·¹±×·¥ Àü¼Û Áö¿¬À¸·Î Àç½Ãµµ ´ë±â"
         else:
-            note = f"app-server turn ì¢…ë£Œ(status={status})"
+            note = f"app-server turn Á¾·á(status={status})"
 
         for task_id in sorted(normalized_task_ids):
             try:
@@ -257,13 +257,13 @@ class DaemonServiceTaskMixin:
                     message_id=(max(message_ids) if message_ids else 0),
                     source_message_ids=sorted(int(v) for v in message_ids if int(v) > 0),
                     change_note=note,
-                    result_summary=summary or "(ì‘ë‹µ í…ìŠ¤íŠ¸ ì—†ìŒ)",
+                    result_summary=summary or "(ÀÀ´ä ÅØ½ºÆ® ¾øÀ½)",
                     sent_files=[],
                     timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     logs_dir=str(self.logs_dir),
                 )
             except Exception as exc:
-                self._log(f"WARN: task record failed chat_id={chat_id} task_id={task_id}: {exc}")
+                self.logger.warning(f"task record failed chat_id={chat_id} task_id={task_id}: {exc}")
 
 
     def _load_task_row(self, chat_id: int, task_id: str, include_instrunction: bool = False) -> dict[str, Any] | None:
@@ -301,19 +301,19 @@ class DaemonServiceTaskMixin:
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as exc:
-            self._log(f"WARN: failed to read task AGENTS.md path={path}: {exc}")
+            self.logger.warning(f"failed to read task AGENTS.md path={path}: {exc}")
             return "", True
         return text, True
 
     def _build_task_agents_edit_request_text(self, target_path: Path, user_text: str) -> str:
         return (
-            "ë‹¤ìŒ ì‘ì—…ì„ ìˆ˜í–‰í•˜ì„¸ìš”.\n"
-            f"- ëŒ€ìƒ íŒŒì¼: {target_path}\n"
-            "- íŒŒì¼ ì´ë¦„ì€ ë°˜ë“œì‹œ AGENTS.mdë¡œ ìœ ì§€í•˜ì„¸ìš”.\n"
-            "- ì‚¬ìš©ìì˜ ë³€ê²½ ìš”ì²­ì„ ë°˜ì˜í•´ íŒŒì¼ì„ ìƒì„± ë˜ëŠ” ìˆ˜ì •í•˜ì„¸ìš”.\n"
-            "- ìˆ˜ì • í›„ ì–´ë–¤ í•­ëª©ì„ ë°”ê¿¨ëŠ”ì§€ ì§§ê²Œ ë³´ê³ í•˜ì„¸ìš”.\n"
-            "- ê´€ë ¨ ì—†ëŠ” íŒŒì¼ì€ ìˆ˜ì •í•˜ì§€ ë§ˆì„¸ìš”.\n\n"
-            "[ì‚¬ìš©ì ë³€ê²½ ìš”ì²­]\n"
+            "´ÙÀ½ ÀÛ¾÷À» ¼öÇàÇÏ¼¼¿ä.\n"
+            f"- ´ë»ó ÆÄÀÏ: {target_path}\n"
+            "- ÆÄÀÏ ÀÌ¸§Àº ¹İµå½Ã AGENTS.md·Î À¯ÁöÇÏ¼¼¿ä.\n"
+            "- »ç¿ëÀÚÀÇ º¯°æ ¿äÃ»À» ¹İ¿µÇØ ÆÄÀÏÀ» »ı¼º ¶Ç´Â ¼öÁ¤ÇÏ¼¼¿ä.\n"
+            "- ¼öÁ¤ ÈÄ ¾î¶² Ç×¸ñÀ» ¹Ù²å´ÂÁö Âª°Ô º¸°íÇÏ¼¼¿ä.\n"
+            "- °ü·Ã ¾ø´Â ÆÄÀÏÀº ¼öÁ¤ÇÏÁö ¸¶¼¼¿ä.\n\n"
+            "[»ç¿ëÀÚ º¯°æ ¿äÃ»]\n"
             f"{str(user_text or '').strip()}"
         )
 
@@ -324,7 +324,7 @@ class DaemonServiceTaskMixin:
             return False
         if TASK_GUIDE_TRIGGER_TEXT not in normalized:
             return False
-        if "ë³´ê¸°" in normalized:
+        if "º¸±â" in normalized:
             return False
         return any(keyword in normalized for keyword in TASK_GUIDE_EDIT_KEYWORDS)
 
@@ -335,7 +335,7 @@ class DaemonServiceTaskMixin:
             f"- Task Folder: thread_{normalized_thread_id}\n"
             "- Last Updated: (auto)\n\n"
             "## Task Guidance\n"
-            "- (ì—¬ê¸°ì— ì‚¬ìš©ì ì „ìš© TASK ì§€ì¹¨ì„ ì‘ì„±í•˜ì„¸ìš”)\n"
+            "- (¿©±â¿¡ »ç¿ëÀÚ Àü¿ë TASK ÁöÄ§À» ÀÛ¼ºÇÏ¼¼¿ä)\n"
         )
 
     def _ensure_task_agents_file(self, chat_id: int, thread_id: str) -> bool:
@@ -348,10 +348,10 @@ class DaemonServiceTaskMixin:
                 self._default_task_agents_template(thread_id=thread_id),
                 encoding="utf-8",
             )
-            self._log(f"task_guide_created chat_id={chat_id} path={path}")
+            self.logger.info(f"task_guide_created chat_id={chat_id} path={path}")
             return True
         except OSError as exc:
-            self._log(f"WARN: failed to create task AGENTS.md path={path}: {exc}")
+            self.logger.warning(f"failed to create task AGENTS.md path={path}: {exc}")
             return False
 
     def _forward_task_guide_edit_request(
@@ -366,8 +366,8 @@ class DaemonServiceTaskMixin:
         if not target_thread_id:
             self._clear_ui_mode(state)
             reply_text = (
-                "í˜„ì¬ ì„ íƒëœ TASKê°€ ì—†ì–´ ì§€ì¹¨ ë³€ê²½ ìš”ì²­ì„ ì²˜ë¦¬í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤.\n"
-                "ë¨¼ì € `TASK ëª©ë¡ ë³´ê¸°(ìµœê·¼20)` ë˜ëŠ” `ê¸°ì¡´ TASK ì´ì–´í•˜ê¸°`ë¡œ TASKë¥¼ ì„ íƒí•´ ì£¼ì„¸ìš”."
+                "ÇöÀç ¼±ÅÃµÈ TASK°¡ ¾ø¾î ÁöÄ§ º¯°æ ¿äÃ»À» Ã³¸®ÇÒ ¼ö ¾ø½À´Ï´Ù.\n"
+                "¸ÕÀú `TASK ¸ñ·Ï º¸±â(ÃÖ±Ù20)` ¶Ç´Â `±âÁ¸ TASK ÀÌ¾îÇÏ±â`·Î TASK¸¦ ¼±ÅÃÇØ ÁÖ¼¼¿ä."
             )
             self._send_control_reply(
                 chat_id=chat_id,
@@ -383,8 +383,8 @@ class DaemonServiceTaskMixin:
             if not self._ensure_task_agents_file(chat_id=chat_id, thread_id=target_thread_id):
                 self._clear_ui_mode(state)
                 reply_text = (
-                    "TASK ì§€ì¹¨ íŒŒì¼ì„ ìƒì„±í•˜ëŠ” ì¤‘ ë¬¸ì œê°€ ë°œìƒí–ˆì–´ìš”.\n"
-                    "ì ì‹œ í›„ ë‹¤ì‹œ ì‹œë„í•´ ì£¼ì„¸ìš”."
+                    "TASK ÁöÄ§ ÆÄÀÏÀ» »ı¼ºÇÏ´Â Áß ¹®Á¦°¡ ¹ß»ıÇß¾î¿ä.\n"
+                    "Àá½Ã ÈÄ ´Ù½Ã ½ÃµµÇØ ÁÖ¼¼¿ä."
                 )
                 self._send_control_reply(
                     chat_id=chat_id,
@@ -401,7 +401,7 @@ class DaemonServiceTaskMixin:
         )
         item["text"] = rewritten_request
         self._clear_ui_mode(state)
-        self._log(
+        self.logger.info(
             f"task_guide_edit_forwarded chat_id={chat_id} msg_id={msg_id} "
             f"target={target_path}"
         )
@@ -414,14 +414,14 @@ class DaemonServiceTaskMixin:
         content, exists = self._load_task_agents_text(chat_id=chat_id, thread_id=thread_id)
         if not exists:
             path = self._task_agents_path(chat_id=chat_id, thread_id=thread_id)
-            self._log(f"task_guide_missing_for_developer_instructions chat_id={chat_id} path={path}")
+            self.logger.info(f"task_guide_missing_for_developer_instructions chat_id={chat_id} path={path}")
             return ""
         normalized = str(content or "").strip()
         if not normalized:
             return ""
         if len(normalized) > DEFAULT_TASK_AGENTS_INSTRUCTIONS_MAX_CHARS:
-            self._log(
-                "WARN: task AGENTS.md too long for developerInstructions; "
+            self.logger.warning(
+                 f"task AGENTS.md too long for developerInstructions; "
                 f"truncating to {DEFAULT_TASK_AGENTS_INSTRUCTIONS_MAX_CHARS} chars"
             )
             normalized = normalized[:DEFAULT_TASK_AGENTS_INSTRUCTIONS_MAX_CHARS]
@@ -456,8 +456,8 @@ class DaemonServiceTaskMixin:
 
     def _render_task_list_text(self, rows: list[dict[str, Any]], limit: int = 20) -> str:
         lines = [
-            f"<b>TASK ëª©ë¡ (ìµœê·¼ {int(limit)}ê°œ)</b>",
-            "<i>ìµœê·¼ìˆœìœ¼ë¡œ ì •ë ¬ë©ë‹ˆë‹¤.</i>",
+            f"<b>TASK ¸ñ·Ï (ÃÖ±Ù {int(limit)}°³)</b>",
+            "<i>ÃÖ±Ù¼øÀ¸·Î Á¤·ÄµË´Ï´Ù.</i>",
             "",
         ]
         for idx, row in enumerate(rows, start=1):
@@ -532,7 +532,7 @@ class DaemonServiceTaskMixin:
         title = _service_utils.compact_prompt_text(
             row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
             max_len=44,
-        ) or "(ì œëª© ì—†ìŒ)"
+        ) or "(Á¦¸ñ ¾øÀ½)"
         subtitle = ""
         for field in subtitle_fallback_fields:
             value = row.get(field, "")
@@ -548,9 +548,9 @@ class DaemonServiceTaskMixin:
         recent_html = self._escape_telegram_html(recent_ts)
         lines = [
             f"<b>{idx}. {title_html}</b>",
-            f"<b>ìš”ì•½</b>: {subtitle_html}",
-            f"<b>ìƒíƒœ</b>: {work_html}",
-            f"<b>ìµœê·¼</b>: <code>{recent_html}</code>",
+            f"<b>¿ä¾à</b>: {subtitle_html}",
+            f"<b>»óÅÂ</b>: {work_html}",
+            f"<b>ÃÖ±Ù</b>: <code>{recent_html}</code>",
         ]
         if include_score:
             try:
@@ -558,7 +558,7 @@ class DaemonServiceTaskMixin:
             except Exception:
                 relevance_score = -1
             if relevance_score >= 0:
-                lines.append(f"<b>ì—°ê´€ë„</b>: <code>{int(relevance_score)}ì </code>")
+                lines.append(f"<b>¿¬°üµµ</b>: <code>{int(relevance_score)}Á¡</code>")
         if include_blank_line:
             lines.append("")
         return lines
@@ -576,9 +576,9 @@ class DaemonServiceTaskMixin:
     def _render_task_candidates_text(self, query: str, rows: list[dict[str, Any]]) -> str:
         query_html = self._escape_telegram_html(query)
         lines = [
-            "<b>ì—°ê´€ TASK í›„ë³´</b>",
-            f"ê²€ìƒ‰ì–´: <code>{query_html}</code>",
-            "<i>ë²ˆí˜¸ë¥¼ ì…ë ¥í•˜ê±°ë‚˜ ì•„ë˜ ë²„íŠ¼ì—ì„œ ì„ íƒí•´ ì£¼ì„¸ìš”.</i>",
+            "<b>¿¬°ü TASK ÈÄº¸</b>",
+            f"°Ë»ö¾î: <code>{query_html}</code>",
+            "<i>¹øÈ£¸¦ ÀÔ·ÂÇÏ°Å³ª ¾Æ·¡ ¹öÆ°¿¡¼­ ¼±ÅÃÇØ ÁÖ¼¼¿ä.</i>",
             "",
         ]
         for idx, row in enumerate(rows, start=1):
@@ -609,7 +609,7 @@ class DaemonServiceTaskMixin:
             title = _service_utils.compact_prompt_text(
                 row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
                 max_len=70,
-            ) or "(ì œëª© ì—†ìŒ)"
+            ) or "(Á¦¸ñ ¾øÀ½)"
             summary = _service_utils.compact_prompt_text(
                 row.get("display_subtitle", "") or row.get("result_summary_short", "") or row.get("instruction_short", ""),
                 max_len=140,
@@ -631,17 +631,17 @@ class DaemonServiceTaskMixin:
             "candidates": compact_candidates,
         }
         instructions = [
-            "ë‹¹ì‹ ì€ TASK ê²€ìƒ‰ ë­ì»¤ë‹¤.",
-            "ëª©í‘œ: queryì™€ ê°€ì¥ ê´€ë ¨ì„± ë†’ì€ TASKë¥¼ candidates ë‚´ë¶€ì—ì„œë§Œ ê³ ë¥¸ë‹¤.",
-            "ì¤‘ìš” ê·œì¹™:",
-            "1) candidatesì— ì—†ëŠ” task_idëŠ” ì ˆëŒ€ ì¶œë ¥í•˜ì§€ ì•ŠëŠ”ë‹¤.",
-            "2) scoreëŠ” 0~100 ì •ìˆ˜ë¡œ ë¶€ì—¬í•œë‹¤.",
-            "3) score ë†’ì€ ìˆœìœ¼ë¡œ ì •ë ¬í•œë‹¤.",
-            "4) ì¶œë ¥ì€ JSON ê°ì²´ í•˜ë‚˜ë§Œ ì¶œë ¥í•œë‹¤. ì½”ë“œë¸”ë¡/ì„¤ëª…ë¬¸/ì¶”ê°€ í…ìŠ¤íŠ¸ ê¸ˆì§€.",
-            '5) ì¶œë ¥ ìŠ¤í‚¤ë§ˆ: {"version":1,"query":"...","results":[{"task_id":"...","score":87,"reason":"ì§§ì€ ê·¼ê±°"}]}',
-            "6) resultsëŠ” top_k ì´ë‚´ë¡œ ì œí•œí•œë‹¤.",
+            "´ç½ÅÀº TASK °Ë»ö ·©Ä¿´Ù.",
+            "¸ñÇ¥: query¿Í °¡Àå °ü·Ã¼º ³ôÀº TASK¸¦ candidates ³»ºÎ¿¡¼­¸¸ °í¸¥´Ù.",
+            "Áß¿ä ±ÔÄ¢:",
+            "1) candidates¿¡ ¾ø´Â task_id´Â Àı´ë Ãâ·ÂÇÏÁö ¾Ê´Â´Ù.",
+            "2) score´Â 0~100 Á¤¼ö·Î ºÎ¿©ÇÑ´Ù.",
+            "3) score ³ôÀº ¼øÀ¸·Î Á¤·ÄÇÑ´Ù.",
+            "4) Ãâ·ÂÀº JSON °´Ã¼ ÇÏ³ª¸¸ Ãâ·ÂÇÑ´Ù. ÄÚµåºí·Ï/¼³¸í¹®/Ãß°¡ ÅØ½ºÆ® ±İÁö.",
+            '5) Ãâ·Â ½ºÅ°¸¶: {"version":1,"query":"...","results":[{"task_id":"...","score":87,"reason":"ÂªÀº ±Ù°Å"}]}',
+            "6) results´Â top_k ÀÌ³»·Î Á¦ÇÑÇÑ´Ù.",
             "",
-            "ì…ë ¥ JSON:",
+            "ÀÔ·Â JSON:",
             json.dumps(request_payload, ensure_ascii=False),
         ]
         return "\n".join(instructions).strip()
@@ -731,13 +731,13 @@ class DaemonServiceTaskMixin:
                 limit=effective_limit,
             )
             if candidates:
-                self._log(
+                self.logger.info(
                     f"resume_search llm_ok chat_id={chat_id} query={_service_utils.compact_prompt_text(query, max_len=80)!r} "
                     f"count={len(candidates)} threshold={self.task_search_llm_min_score}"
                 )
                 return candidates
-            self._log(
-                f"WARN: resume_search llm_empty_or_failed chat_id={chat_id} "
+            self.logger.warning(
+                f"resume_search llm_empty_or_failed chat_id={chat_id} "
                 f"query={_service_utils.compact_prompt_text(query, max_len=80)!r}; fallback=code"
             )
         return self._search_task_candidates(chat_id=chat_id, query=query, limit=effective_limit)
@@ -761,7 +761,7 @@ class DaemonServiceTaskMixin:
                     logs_dir=str(self.logs_dir),
                 )
             except Exception as exc:
-                self._log(f"WARN: relevant task search failed chat_id={chat_id}: {exc}")
+                self.logger.warning(f"relevant task search failed chat_id={chat_id}: {exc}")
                 related = []
             if isinstance(related, list):
                 for item in related:
@@ -862,12 +862,12 @@ class DaemonServiceTaskMixin:
         title = _service_utils.compact_prompt_text(
             row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
             max_len=120,
-        ) or "(ì œëª© ì—†ìŒ)"
+        ) or "(Á¦¸ñ ¾øÀ½)"
         subtitle = _service_utils.compact_prompt_text(
             row.get("display_subtitle", "") or row.get("result_summary_short", "") or row.get("instruction_short", ""),
             max_len=220,
         )
-        instruction = _service_utils.compact_prompt_text(row.get("instruction", ""), max_len=220) or "(ì§€ì‹œ ì—†ìŒ)"
+        instruction = _service_utils.compact_prompt_text(row.get("instruction", ""), max_len=220) or "(Áö½Ã ¾øÀ½)"
         latest_change = _service_utils.compact_prompt_text(row.get("latest_change", ""), max_len=240)
         recent_ts = _service_utils.compact_prompt_text(self._task_row_recent_timestamp(row), max_len=19)
         related_ids = row.get("related_task_ids", [])
@@ -883,7 +883,7 @@ class DaemonServiceTaskMixin:
             self._bind_task_thread_mapping(chat_id=chat_id, task_id=task_id, thread_id=task_thread_id)
 
         lines = [
-            "[ì´ì–´ê°ˆ TASK ì»¨í…ìŠ¤íŠ¸]",
+            "[ÀÌ¾î°¥ TASK ÄÁÅØ½ºÆ®]",
             f"- task: {task_id or '(unknown)'}",
             f"- title: {title}",
             f"- status: {status} (ops={ops_status})",
@@ -901,7 +901,7 @@ class DaemonServiceTaskMixin:
             lines.append(f"- latest_change: {latest_change}")
         if related_text:
             lines.append(f"- related: {related_text}")
-        lines.append("- ì§€ì‹œì‚¬í•­ì„ ìœ„ TASK ë§¥ë½ìœ¼ë¡œ ì´ì–´ì„œ ì²˜ë¦¬í•  ê²ƒ.")
+        lines.append("- Áö½Ã»çÇ×À» À§ TASK ¸Æ¶ôÀ¸·Î ÀÌ¾î¼­ Ã³¸®ÇÒ °Í.")
         packet = "\n".join(lines)
         if len(packet) > 1500:
             packet = packet[:1497] + "..."
@@ -946,19 +946,19 @@ class DaemonServiceTaskMixin:
 
         target_lines = max(10, int(self.new_task_summary_lines))
         lines: list[str] = [
-            "[ì´ì „ ëŒ€í™” í•µì‹¬ ìš”ì•½(ìë™)]",
-            f"- ê¸°ì¤€ TASK: {anchor_task_id}",
+            "[ÀÌÀü ´ëÈ­ ÇÙ½É ¿ä¾à(ÀÚµ¿)]",
+            f"- ±âÁØ TASK: {anchor_task_id}",
         ]
         if anchor_title:
-            lines.append(f"- ê¸°ì¤€ ì œëª©: {anchor_title}")
+            lines.append(f"- ±âÁØ Á¦¸ñ: {anchor_title}")
         if anchor_subtitle:
-            lines.append(f"- ê¸°ì¤€ ìš”ì•½: {anchor_subtitle}")
+            lines.append(f"- ±âÁØ ¿ä¾à: {anchor_subtitle}")
         if instruction_short:
-            lines.append(f"- ê¸°ì¤€ ì§€ì‹œ: {instruction_short}")
+            lines.append(f"- ±âÁØ Áö½Ã: {instruction_short}")
         if latest_change:
-            lines.append(f"- ìµœê·¼ ë³€ê²½: {latest_change}")
+            lines.append(f"- ÃÖ±Ù º¯°æ: {latest_change}")
         lines.append("")
-        lines.append("[í•µì‹¬ ë§¥ë½]")
+        lines.append("[ÇÙ½É ¸Æ¶ô]")
 
         if instruction_text:
             for raw in instruction_text.splitlines():
@@ -970,7 +970,7 @@ class DaemonServiceTaskMixin:
                     break
 
         lines.append("")
-        lines.append("[ìµœê·¼ TASK íë¦„]")
+        lines.append("[ÃÖ±Ù TASK Èå¸§]")
         for row in rows:
             row_task_id = _service_utils.task_row_id(row) or "(unknown)"
             work_status = _service_utils.compact_prompt_text(row.get("work_status", "") or row.get("status", ""), max_len=24) or "unknown"
@@ -978,7 +978,7 @@ class DaemonServiceTaskMixin:
             title = _service_utils.compact_prompt_text(
                 row.get("display_title", "") or row.get("instruction", "") or row.get("instruction_short", ""),
                 max_len=70,
-            ) or "(ì œëª© ì—†ìŒ)"
+            ) or "(Á¦¸ñ ¾øÀ½)"
             subtitle = _service_utils.compact_prompt_text(
                 row.get("display_subtitle", "") or row.get("result_summary_short", ""),
                 max_len=56,
@@ -1024,12 +1024,12 @@ class DaemonServiceTaskMixin:
                     task_id=selected_task_id,
                     thread_id=target_thread_id,
                 )
-            self._log(f"task thread target applied chat_id={chat_id} thread_id={target_thread_id}")
+            self.logger.info(f"task thread target applied chat_id={chat_id} thread_id={target_thread_id}")
             return
 
         state["force_new_thread_once"] = True
         self._save_app_server_state()
-        self._log(f"task thread target missing, will start new thread chat_id={chat_id}")
+        self.logger.info(f"task thread target missing, will start new thread chat_id={chat_id}")
 
     def _legacy_task_thread_map_path(self, chat_id: int) -> Path:
         return self._task_root_for_chat(chat_id) / LEGACY_TASK_THREAD_MAP_FILENAME
@@ -1042,7 +1042,7 @@ class DaemonServiceTaskMixin:
         path = self._legacy_task_thread_map_path(chat_id)
         normalized = _service_utils.normalize_task_thread_map(mapping)
         if not _service_utils.write_json_dict_atomic(path, normalized):
-            self._log(f"WARN: failed to save legacy task thread map: {path}")
+            self.logger.warning(f"failed to save legacy task thread map: {path}")
 
     def _bind_task_thread_mapping(self, chat_id: int, task_id: str, thread_id: str) -> None:
         normalized_task_id = _service_utils.normalize_task_id_token(task_id)
@@ -1054,4 +1054,8 @@ class DaemonServiceTaskMixin:
             return
         mapping[normalized_task_id] = normalized_thread_id
         self._save_legacy_task_thread_map(chat_id, mapping)
+
+
+
+
 

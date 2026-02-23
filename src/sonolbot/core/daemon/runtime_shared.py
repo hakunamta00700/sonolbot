@@ -14,7 +14,7 @@ import tomllib
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 import shutil
 from dotenv import load_dotenv
 from sonolbot.core.daemon.constants import *
@@ -125,6 +125,44 @@ def _log_with_loguru(
             print(message_text)
         except Exception:
             pass
+
+
+class _ComponentLogger:
+    """Tiny logger helper bound to a daemon component + log path."""
+
+    def __init__(self, *, log_path: Path | Callable[[], Path], component: str, level: str = "INFO") -> None:
+        self._log_path = log_path
+        self._component = component
+        self._default_level = level
+
+    def _resolve_log_path(self) -> Path:
+        if callable(self._log_path):
+            return Path(self._log_path())
+        return Path(self._log_path)
+
+    def _emit(self, level: str, message: object) -> None:
+        _log_with_loguru(
+            str(message),
+            log_path=self._resolve_log_path(),
+            component=self._component,
+            level=level,
+        )
+
+    def info(self, message: object) -> None:
+        self._emit(self._default_level, message)
+
+    def warning(self, message: object) -> None:
+        self._emit("WARNING", message)
+
+    def error(self, message: object) -> None:
+        self._emit("ERROR", message)
+
+    def warn(self, message: object) -> None:
+        self.warning(message)
+
+
+def make_component_logger(*, log_path: Path | Callable[[], Path], component: str, level: str = "INFO") -> _ComponentLogger:
+    return _ComponentLogger(log_path=log_path, component=component, level=level)
 
 load_dotenv(PROJECT_ROOT / ".env", override=False)
 

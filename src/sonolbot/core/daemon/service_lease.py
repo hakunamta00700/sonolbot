@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 from sonolbot.core.daemon.runtime_shared import *
@@ -152,7 +152,7 @@ class DaemonServiceLeaseMixin:
         if (now - last_ts) < 1.0:
             return
         runtime._completed_requeue_log_ts[msg_id] = now
-        self._log(
+        self.logger.info(
             f"turn_start_completed_cache_filter chat_id={chat_id} message_id={msg_id} age={age_sec:.1f}s"
         )
 
@@ -236,7 +236,7 @@ class DaemonServiceLeaseMixin:
             return
         self._chat_lease_busy_logged_at[chat_id] = now_epoch
         remain = max(0.0, expires_at - now_epoch)
-        self._log(
+        self.logger.info(
             f"chat_lease_busy chat_id={chat_id} owner_pid={owner_pid or '-'} "
             f"remaining={remain:.1f}s"
         )
@@ -257,7 +257,7 @@ class DaemonServiceLeaseMixin:
                         return False
                     if not valid:
                         self._delete_chat_lease_unlocked(chat_id)
-                        self._log(
+                        self.logger.info(
                             f"chat_lease_recovered chat_id={chat_id} stale_reason=expired_or_owner_dead"
                         )
 
@@ -274,13 +274,13 @@ class DaemonServiceLeaseMixin:
                 self._save_chat_lease_unlocked(chat_id, payload)
                 self._owned_chat_leases.add(int(chat_id))
                 self._chat_lease_busy_logged_at.pop(int(chat_id), None)
-                self._log(f"chat_lease_acquired chat_id={chat_id} messages={len(msg_ids)}")
+                self.logger.info(f"chat_lease_acquired chat_id={chat_id} messages={len(msg_ids)}")
                 return True
         except TimeoutError:
-            self._log(f"WARN: chat_lease_lock_timeout chat_id={chat_id}")
+            self.logger.warning(f"chat_lease_lock_timeout chat_id={chat_id}")
             return False
         except Exception as exc:
-            self._log(f"WARN: chat_lease_acquire_failed chat_id={chat_id}: {exc}")
+            self.logger.warning(f"chat_lease_acquire_failed chat_id={chat_id}: {exc}")
             return False
 
     def _chat_lease_touch(
@@ -310,10 +310,10 @@ class DaemonServiceLeaseMixin:
                 self._save_chat_lease_unlocked(chat_id, lease)
                 return True
         except TimeoutError:
-            self._log(f"WARN: chat_lease_touch_timeout chat_id={chat_id}")
+            self.logger.warning(f"chat_lease_touch_timeout chat_id={chat_id}")
             return False
         except Exception as exc:
-            self._log(f"WARN: chat_lease_touch_failed chat_id={chat_id}: {exc}")
+            self.logger.warning(f"chat_lease_touch_failed chat_id={chat_id}: {exc}")
             return False
 
     def _chat_lease_release(self, chat_id: int, reason: str) -> None:
@@ -330,16 +330,16 @@ class DaemonServiceLeaseMixin:
                 self._delete_chat_lease_unlocked(chat_id)
                 released = True
         except TimeoutError:
-            self._log(f"WARN: chat_lease_release_timeout chat_id={chat_id} reason={reason}")
+            self.logger.warning(f"chat_lease_release_timeout chat_id={chat_id} reason={reason}")
             return
         except Exception as exc:
-            self._log(f"WARN: chat_lease_release_failed chat_id={chat_id} reason={reason}: {exc}")
+            self.logger.warning(f"chat_lease_release_failed chat_id={chat_id} reason={reason}: {exc}")
             return
         finally:
             self._owned_chat_leases.discard(int(chat_id))
             self._chat_lease_busy_logged_at.pop(int(chat_id), None)
         if released:
-            self._log(f"chat_lease_released chat_id={chat_id} reason={reason}")
+            self.logger.info(f"chat_lease_released chat_id={chat_id} reason={reason}")
 
     def _release_owned_chat_leases(self, reason: str) -> None:
         for chat_id in sorted(self._owned_chat_leases.copy()):
@@ -369,5 +369,7 @@ class DaemonServiceLeaseMixin:
             if chat_id > 0:
                 self._chat_lease_release(chat_id, reason="stale_cleanup")
         return False
+
+
 
 

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.runtime_shared import *
@@ -59,7 +59,7 @@ class DaemonServiceTelegramMixin:
             runtime_data = build_telegram_runtime()
             skill = get_telegram_skill()
         except Exception as exc:
-            self._log(f"WARN: telegram runtime init failed: {exc}")
+            self.logger.warning(f"telegram runtime init failed: {exc}")
             return None, None
         runtime.telegram_runtime = runtime_data
         runtime.telegram_skill = skill
@@ -82,7 +82,7 @@ class DaemonServiceTelegramMixin:
             except TypeError:
                 profile = telegram.get_me(runtime)
         except Exception as exc:
-            self._log(f"WARN: get_me failed: {exc}")
+            self.logger.warning(f"get_me failed: {exc}")
             return ""
         if not isinstance(profile, dict):
             return ""
@@ -102,7 +102,7 @@ class DaemonServiceTelegramMixin:
             except TypeError:
                 value = telegram.get_my_name(runtime, language_code="")
         except Exception as exc:
-            self._log(f"WARN: get_my_name failed: {exc}")
+            self.logger.warning(f"get_my_name failed: {exc}")
             return ""
         return _service_utils.compact_prompt_text(value, max_len=80)
 
@@ -129,7 +129,7 @@ class DaemonServiceTelegramMixin:
                     )
                 )
         except Exception as exc:
-            self._log(f"WARN: set_my_name failed: {exc}")
+            self.logger.warning(f"set_my_name failed: {exc}")
             return False
 
     def _telegram_send_text_once(
@@ -240,7 +240,7 @@ class DaemonServiceTelegramMixin:
                     )
                 )
         except Exception as exc:
-            self._log(f"WARN: telegram {action} failed chat_id={chat_id}{target}: {exc}")
+            self.logger.warning(f"telegram {action} failed chat_id={chat_id}{target}: {exc}")
             return False
 
     def _telegram_send_text(
@@ -288,8 +288,8 @@ class DaemonServiceTelegramMixin:
                     is_parse = True
 
             if is_network:
-                self._log(
-                    "WARN: telegram send retry with same parse_mode due to network error "
+                self.logger.warning(
+                    f"telegram send retry with same parse_mode due to network error "
                     f"chat_id={chat_id} parse_mode={effective_parse_mode}"
                 )
                 return self._telegram_send_text_once(
@@ -304,8 +304,8 @@ class DaemonServiceTelegramMixin:
                 )
 
             if is_parse:
-                self._log(
-                    "WARN: telegram send retry without parse_mode due to parse error "
+                self.logger.warning(
+                    f"telegram send retry without parse_mode due to parse error "
                     f"chat_id={chat_id} parse_mode={effective_parse_mode}"
                 )
                 return self._telegram_send_text_once(
@@ -367,8 +367,8 @@ class DaemonServiceTelegramMixin:
                     is_parse = True
 
             if is_network:
-                self._log(
-                    "WARN: telegram edit retry with same parse_mode due to network error "
+                self.logger.warning(
+                    f"telegram edit retry with same parse_mode due to network error "
                     f"chat_id={chat_id} message_id={message_id} parse_mode={effective_parse_mode}"
                 )
                 return self._telegram_send_text_once(
@@ -383,8 +383,8 @@ class DaemonServiceTelegramMixin:
                 )
 
             if is_parse:
-                self._log(
-                    "WARN: telegram edit retry without parse_mode due to parse error "
+                self.logger.warning(
+                    f"telegram edit retry without parse_mode due to parse error "
                     f"chat_id={chat_id} message_id={message_id} parse_mode={effective_parse_mode}"
                 )
                 return self._telegram_send_text_once(
@@ -411,12 +411,12 @@ class DaemonServiceTelegramMixin:
                 reply_to_message_ids=[int(message_id)],
             )
         except Exception as exc:
-            self._log(f"WARN: control response save failed chat_id={chat_id} msg_id={message_id}: {exc}")
+            self.logger.warning(f"control response save failed chat_id={chat_id} msg_id={message_id}: {exc}")
 
         try:
             changed = int(telegram.mark_messages_processed(str(self.store_file), [int(message_id)]))
         except Exception as exc:
-            self._log(f"WARN: control mark processed failed chat_id={chat_id} msg_id={message_id}: {exc}")
+            self.logger.warning(f"control mark processed failed chat_id={chat_id} msg_id={message_id}: {exc}")
             changed = 0
         if changed > 0:
             self._remember_completed_message_ids({int(message_id)})
@@ -457,3 +457,6 @@ class DaemonServiceTelegramMixin:
             sent=sent,
         )
         return sent
+
+
+

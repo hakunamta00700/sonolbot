@@ -1,4 +1,4 @@
-ï»¿from __future__ import annotations
+from __future__ import annotations
 
 from sonolbot.core.daemon.runtime_shared import *
 from sonolbot.core.daemon import service_utils as _service_utils
@@ -61,12 +61,12 @@ class DaemonServiceAppRuntime:
         if not _service_utils.write_json_dict(
             self._owner.app_server_state_file, _service_utils.build_session_thread_payload(data_map)
         ):
-            self._owner._log(f"WARN: failed to save app-server state: write failed")
+            self._owner.logger.warning(f"failed to save app-server state: write failed")
             return
         try:
             self.secure_file(self._owner.app_server_state_file)
         except OSError as exc:
-            self._owner._log(f"WARN: failed to secure app-server state: {exc}")
+            self._owner.logger.warning(f"failed to secure app-server state: {exc}")
 
     def write_log(self, prefix: str, line: str) -> None:
         if not _service_utils.append_timestamped_log_line(self._owner.app_server_log_file, prefix, line):
@@ -96,7 +96,7 @@ class DaemonServiceAppRuntime:
             )
             self.secure_file(self._owner.codex_session_meta_file)
         except OSError as exc:
-            self._owner._log(f"WARN: failed to write codex session meta: {exc}")
+            self._owner.logger.warning(f"failed to write codex session meta: {exc}")
 
     def set_runtime_env(self, key: str, value: str) -> None:
         self._owner.env[key] = value
@@ -290,7 +290,7 @@ class DaemonServiceAppRuntime:
             return
         self._app_server_lock_busy_logged_at = now_epoch
         pid_hint = self.read_pid_file(self._owner.codex_pid_file)
-        self._owner._log(
+        self._owner.logger.info(
             f"app_server_lock_busy path={self._owner.app_server_lock_file} pid_hint={pid_hint or '-'}"
         )
 
@@ -315,7 +315,7 @@ class DaemonServiceAppRuntime:
             pass
         self.secure_file(self._owner.app_server_lock_file)
         self._app_server_lock_busy_logged_at = 0.0
-        self._owner._log(f"app_server_lock_acquired path={self._owner.app_server_lock_file}")
+        self._owner.logger.info(f"app_server_lock_acquired path={self._owner.app_server_lock_file}")
         return True
 
     def release_lock(self) -> None:
@@ -327,7 +327,7 @@ class DaemonServiceAppRuntime:
         except OSError:
             pass
         self._app_server_lock_fd = None
-        self._owner._log(f"app_server_lock_released path={self._owner.app_server_lock_file}")
+        self._owner.logger.info(f"app_server_lock_released path={self._owner.app_server_lock_file}")
 
     def build_codex_app_server_cmd(self, role: str = "app-server") -> list[str]:
         listen = str(getattr(self._owner, "app_server_listen", "stdio://")).strip()
@@ -792,7 +792,7 @@ class DaemonServiceAppMixin:
                 self._write_app_server_log("SEND", rendered)
                 return True
             except Exception as exc:
-                self._log(f"WARN: app-server send failed: {exc}")
+                self.logger.warning(f"app-server send failed: {exc}")
                 return False
 
     def _app_notify(self, method: str, params: dict[str, Any] | None = None) -> bool:
@@ -830,13 +830,13 @@ class DaemonServiceAppMixin:
         try:
             reply = response_q.get(timeout=max(1.0, wait_sec))
         except queue.Empty:
-            self._log(f"WARN: app-server request timeout method={method} id={req_id}")
+            self.logger.warning(f"app-server request timeout method={method} id={req_id}")
             with self.app_req_lock:
                 self.app_pending_responses.pop(req_id, None)
             return None
 
         if "error" in reply:
-            self._log(f"WARN: app-server request error method={method} id={req_id} error={reply.get('error')}")
+            self.logger.warning(f"app-server request error method={method} id={req_id} error={reply.get('error')}")
             return None
         result = reply.get("result")
         if isinstance(result, dict):
@@ -877,17 +877,17 @@ class DaemonServiceAppMixin:
             payload = {"id": req_id, "result": {"decision": "approved"}}
         else:
             payload = {"id": req_id, "result": {}}
-            self._log(f"WARN: unhandled app-server request method={method}, replied with empty result")
+            self.logger.warning(f"unhandled app-server request method={method}, replied with empty result")
 
         if not self._app_send_json(payload):
-            self._log(f"WARN: failed to send app-server request response method={method} id={req_id}")
+            self.logger.warning(f"failed to send app-server request response method={method} id={req_id}")
 
     def _app_dispatch_incoming(self, line: str) -> None:
         self._write_app_server_log("RECV", line)
         try:
             obj = json.loads(line)
         except json.JSONDecodeError:
-            self._log(f"WARN: non-json app-server output: {line[:180]}")
+            self.logger.warning(f"non-json app-server output: {line[:180]}")
             return
         if not isinstance(obj, dict):
             return
@@ -915,7 +915,7 @@ class DaemonServiceAppMixin:
         try:
             self.app_event_queue.put_nowait(obj)
         except Exception:
-            self._log("WARN: app-server event queue full; dropping event")
+            self.logger.warning(f"app-server event queue full; dropping event")
 
     def _app_stdout_reader(self) -> None:
         proc = self.app_proc
@@ -937,7 +937,7 @@ class DaemonServiceAppMixin:
                 continue
             self._write_app_server_log("ERR", line)
             if "ERROR" in line or "WARN" in line:
-                self._log(f"[app-server][stderr] {line}")
+                self.logger.info(f"[app-server][stderr] {line}")
 
     def _app_attach_or_create_thread(self, chat_id: int) -> str:
         state = self._get_chat_state(chat_id)
@@ -955,7 +955,7 @@ class DaemonServiceAppMixin:
                 thread_id = recovered_thread_id
                 self._save_app_server_state()
                 self._sync_app_server_session_meta(active_chat_id=chat_id)
-                self._log(
+                self.logger.info(
                     f"app-server thread recovered chat_id={chat_id} thread_id={recovered_thread_id}"
                 )
         attached_generation = int(state.get("app_generation") or 0)
@@ -1013,7 +1013,7 @@ class DaemonServiceAppMixin:
             self.app_thread_to_chat[thread_id] = chat_id
             self._save_app_server_state()
             self._sync_app_server_session_meta(active_chat_id=chat_id)
-            self._log(f"app-server thread started chat_id={chat_id} thread_id={thread_id}")
+            self.logger.info(f"app-server thread started chat_id={chat_id} thread_id={thread_id}")
         return thread_id
 
     def _app_start_turn_for_chat(self, chat_id: int, batch: list[dict[str, Any]]) -> bool:
@@ -1035,7 +1035,7 @@ class DaemonServiceAppMixin:
                 continue
             filtered_batch.append(item)
         if dropped_recent_count > 0:
-            self._log(
+            self.logger.info(
                 "turn_start_completed_cache_filter "
                 f"chat_id={chat_id} dropped={dropped_recent_count} total={len(batch)}"
             )
@@ -1050,7 +1050,7 @@ class DaemonServiceAppMixin:
         if not batch_message_ids:
             return False
         if not self._chat_lease_try_acquire(chat_id=chat_id, message_ids=batch_message_ids):
-            self._log(f"chat_turn_start_skipped_due_to_lease chat_id={chat_id} batch={len(batch)}")
+            self.logger.info(f"chat_turn_start_skipped_due_to_lease chat_id={chat_id} batch={len(batch)}")
             return False
 
         started = False
@@ -1122,7 +1122,7 @@ class DaemonServiceAppMixin:
             message_ids=batch_message_ids,
         )
         self._sync_app_server_session_meta(active_chat_id=chat_id)
-        self._log(
+        self.logger.info(
             f"app-server turn started chat_id={chat_id} thread_id={thread_id} "
             f"turn_id={turn_id} batch={len(batch)}"
         )
@@ -1173,7 +1173,7 @@ class DaemonServiceAppMixin:
             message_ids=active_ids,
         )
         self._sync_app_server_session_meta(active_chat_id=chat_id)
-        self._log(f"app-server steer accepted chat_id={chat_id} turn_id={turn_id} messages={len(new_items)}")
+        self.logger.info(f"app-server steer accepted chat_id={chat_id} turn_id={turn_id} messages={len(new_items)}")
         return True
 
     def _app_try_send_final_reply(self, chat_id: int, message_ids: set[int], text: str) -> bool:
@@ -1196,7 +1196,7 @@ class DaemonServiceAppMixin:
                     )
                 )
             except Exception as exc:
-                self._log(f"WARN: final reply send exception chat={chat_id} attempt={attempt}: {exc}")
+                self.logger.warning(f"final reply send exception chat={chat_id} attempt={attempt}: {exc}")
                 ok = False
             if ok:
                 break
@@ -1216,14 +1216,14 @@ class DaemonServiceAppMixin:
                 reply_to_message_ids=ordered_ids,
             )
         except Exception as exc:
-            self._log(f"WARN: failed to save bot response chat={chat_id}: {exc}")
+            self.logger.warning(f"failed to save bot response chat={chat_id}: {exc}")
 
         try:
             changed = int(telegram.mark_messages_processed(str(self.store_file), ordered_ids))
         except Exception as exc:
-            self._log(f"WARN: failed to mark processed chat={chat_id}: {exc}")
+            self.logger.warning(f"failed to mark processed chat={chat_id}: {exc}")
             changed = 0
-        self._log(
+        self.logger.info(
             f"Final reply sent chat_id={chat_id} message_count={len(ordered_ids)} marked={changed}"
         )
         return True
@@ -1258,7 +1258,7 @@ class DaemonServiceAppMixin:
             else:
                 task_prefix = f"msg_{min(active_ids)}"
         snippet = delta_text[-220:].strip()
-        progress_text = f"[ì§„í–‰ì¤‘] {task_prefix}\n{snippet}"
+        progress_text = f"[ÁøÇàÁß] {task_prefix}\n{snippet}"
 
         runtime, telegram = self._get_telegram_runtime_skill()
         if runtime is None or telegram is None:
@@ -1273,7 +1273,7 @@ class DaemonServiceAppMixin:
                 )
             )
         except Exception as exc:
-            self._log(f"WARN: progress send failed chat_id={chat_id}: {exc}")
+            self.logger.warning(f"progress send failed chat_id={chat_id}: {exc}")
             ok = False
         if ok:
             state["last_progress_sent_at"] = now_epoch
@@ -1293,7 +1293,7 @@ class DaemonServiceAppMixin:
                 )
             )
         except Exception as exc:
-            self._log(f"WARN: intermediate agent_message send failed chat_id={chat_id}: {exc}")
+            self.logger.warning(f"intermediate agent_message send failed chat_id={chat_id}: {exc}")
             return False
 
     def _app_finalize_reply_without_resend(self, chat_id: int, message_ids: set[int], text: str) -> bool:
@@ -1312,14 +1312,14 @@ class DaemonServiceAppMixin:
                 reply_to_message_ids=ordered_ids,
             )
         except Exception as exc:
-            self._log(f"WARN: failed to save streamed bot response chat={chat_id}: {exc}")
+            self.logger.warning(f"failed to save streamed bot response chat={chat_id}: {exc}")
 
         try:
             changed = int(telegram.mark_messages_processed(str(self.store_file), ordered_ids))
         except Exception as exc:
-            self._log(f"WARN: failed to mark streamed reply processed chat={chat_id}: {exc}")
+            self.logger.warning(f"failed to mark streamed reply processed chat={chat_id}: {exc}")
             return False
-        self._log(
+        self.logger.info(
             f"Final reply already streamed chat_id={chat_id} message_count={len(ordered_ids)} marked={changed}"
         )
         return True
@@ -1331,7 +1331,7 @@ class DaemonServiceAppMixin:
         state = self._get_chat_state(chat_id)
         turn_id = str(turn.get("id") or "").strip()
         if turn_id and str(state.get("active_turn_id") or "").strip() and turn_id != str(state.get("active_turn_id")):
-            self._log(f"WARN: completed turn mismatch chat_id={chat_id} completed={turn_id} active={state.get('active_turn_id')}")
+            self.logger.warning(f"completed turn mismatch chat_id={chat_id} completed={turn_id} active={state.get('active_turn_id')}")
 
         status = str(turn.get("status") or "").strip().lower() or "completed"
         final_text = str(state.get("final_text") or "").strip()
@@ -1354,20 +1354,20 @@ class DaemonServiceAppMixin:
             if not sent_ok:
                 state["failed_reply_text"] = final_text
                 state["failed_reply_ids"] = set(message_ids)
-                self._log(
-                    f"WARN: final reply send deferred chat_id={chat_id} "
+                self.logger.warning(
+                    f"final reply send deferred chat_id={chat_id} "
                     f"messages={len(message_ids)}"
                 )
             else:
                 state["failed_reply_text"] = ""
                 state["failed_reply_ids"] = set()
         elif status == "completed" and not final_text and message_ids:
-            self._log(
-                f"WARN: turn completed without task_complete final message chat_id={chat_id} "
+            self.logger.warning(
+                f"turn completed without task_complete final message chat_id={chat_id} "
                 f"messages={len(message_ids)}"
             )
         elif status != "completed":
-            self._log(f"WARN: turn completed with non-success status chat_id={chat_id} status={status}")
+            self.logger.warning(f"turn completed with non-success status chat_id={chat_id} status={status}")
 
         self._task_record_batch_change(
             chat_id=chat_id,
@@ -1542,7 +1542,7 @@ class DaemonServiceAppMixin:
             try:
                 self._app_process_notification(event)
             except Exception as exc:
-                self._log(f"WARN: app-server event handling failed: {exc}")
+                self.logger.warning(f"app-server event handling failed: {exc}")
 
     def _app_retry_failed_replies(self) -> None:
         for chat_id, state in self.app_chat_states.items():
@@ -1575,7 +1575,7 @@ class DaemonServiceAppMixin:
         if not pending_messages and not has_stateful_work and self._app_is_running():
             if self._is_bot_workspace_idle():
                 if self._has_any_active_chat_lease():
-                    self._log("idle_shutdown_skipped_active_lease")
+                    self.logger.info("idle_shutdown_skipped_active_lease")
                 else:
                     self._stop_app_server(f"workspace_idle>{self.idle_timeout_sec}s")
             return
@@ -1586,8 +1586,8 @@ class DaemonServiceAppMixin:
             return
         self._app_drain_events()
         self._app_retry_failed_replies()
-        # turn/completed ì²˜ë¦¬ì—ì„œ processed ë§ˆí‚¹ì´ ë°˜ì˜ë  ìˆ˜ ìžˆìœ¼ë¯€ë¡œ
-        # pending ìŠ¤ëƒ…ìƒ·ì„ ê°±ì‹ í•´ ê°™ì€ ë©”ì‹œì§€ì˜ ë™ì¼ ì‚¬ì´í´ ìž¬íˆ¬ìž…ì„ ë°©ì§€í•œë‹¤.
+        # turn/completed Ã³¸®¿¡¼­ processed ¸¶Å·ÀÌ ¹Ý¿µµÉ ¼ö ÀÖÀ¸¹Ç·Î
+        # pending ½º³À¼¦À» °»½ÅÇØ °°Àº ¸Þ½ÃÁöÀÇ µ¿ÀÏ »çÀÌÅ¬ ÀçÅõÀÔÀ» ¹æÁöÇÑ´Ù.
         pending_messages = self._snapshot_pending_messages()
 
         grouped = self._group_pending_by_chat(pending_messages)
@@ -1615,8 +1615,8 @@ class DaemonServiceAppMixin:
                 if started_epoch > 0 and (time.time() - started_epoch) > self.app_server_turn_timeout_sec:
                     thread_id = str(state.get("thread_id") or "").strip()
                     if thread_id:
-                        self._log(
-                            f"WARN: interrupting stale turn chat_id={chat_id} turn_id={active_turn} "
+                        self.logger.warning(
+                            f"interrupting stale turn chat_id={chat_id} turn_id={active_turn} "
                             f"timeout={self.app_server_turn_timeout_sec}s"
                         )
                         self._app_request(
@@ -1693,4 +1693,7 @@ class DaemonServiceAppMixin:
                 state["queued_messages"] = retry_batch
             else:
                 state["queued_messages"] = []
+
+
+
 

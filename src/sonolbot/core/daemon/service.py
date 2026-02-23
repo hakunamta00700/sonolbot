@@ -1,4 +1,4 @@
-ï»¿"Daemon service orchestration."
+"Daemon service orchestration."
 from __future__ import annotations
 from typing import Callable
 
@@ -33,6 +33,7 @@ class DaemonService(
         core_python_policy: DaemonServiceCorePythonPolicy | None = None,
         service_config: DaemonServiceConfig | None = None,
         service_init_warnings: list[str] | None = None,
+        logger: _ComponentLogger | None = None,
         service_config_loader: Callable[[], tuple[DaemonServiceConfig, list[str]]] | None = None,
         task_runtime: DaemonServiceTaskRuntime | None = None,
         app_runtime: DaemonServiceAppRuntime | None = None,
@@ -65,9 +66,13 @@ class DaemonService(
             init_warnings = list(service_init_warnings or [])
         for name, value in self.config.as_dict().items():
             setattr(self, name, value)
+        self.logger = logger if logger is not None else make_component_logger(
+            log_path=self._daily_log_path,
+            component="service",
+        )
         self._init_core_runtime(core_runtime, env_policy=core_env_policy, python_policy=core_python_policy)
         for message in init_warnings:
-            self._log(f"WARN: {message}")
+            self.logger.warning(f"{message}")
 
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.tasks_dir.mkdir(parents=True, exist_ok=True)
@@ -86,8 +91,6 @@ class DaemonService(
         self._cleanup_activity_logs()
         self._rotate_activity_log_if_needed(force=False)
 
-    def _log(self, message: str) -> None:
-        _log_with_loguru(message, log_path=self._daily_log_path(), component="service")
 
     def _daily_log_path(self) -> Path:
         return self.logs_dir / f"daemon-{datetime.now().strftime('%Y-%m-%d')}.log"
@@ -141,18 +144,18 @@ class DaemonService(
         char_limit = max(1200, int(max_chars))
 
         lines: list[str] = [
-            "[í˜„ì¬ ì±— ìµœê·¼ ëŒ€í™” ìš”ì•½(ìë™)]",
-            f"- ë²”ìœ„: ìµœê·¼ {window_hours}ì‹œê°„",
-            f"- ëª©í‘œ ì¤„ìˆ˜: ì•½ {target}ì¤„ (ë©”ì‹œì§€ê°€ ì ìœ¼ë©´ ë” ì§§ì„ ìˆ˜ ìˆìŒ)",
+            "[ÇöÀç Ãª ÃÖ±Ù ´ëÈ­ ¿ä¾à(ÀÚµ¿)]",
+            f"- ¹üÀ§: ÃÖ±Ù {window_hours}½Ã°£",
+            f"- ¸ñÇ¥ ÁÙ¼ö: ¾à {target}ÁÙ (¸Ş½ÃÁö°¡ ÀûÀ¸¸é ´õ ÂªÀ» ¼ö ÀÖÀ½)",
             "",
-            "[ëŒ€í™” íë¦„]",
+            "[´ëÈ­ Èå¸§]",
         ]
 
         try:
             payload = json.loads(self.store_file.read_text(encoding="utf-8"))
         except Exception as exc:
-            self._log(f"WARN: recent chat summary load failed chat_id={chat_id}: {exc}")
-            lines.append("- ë©”ì‹œì§€ ì €ì¥ì†Œë¥¼ ì½ì§€ ëª»í•´ ìš”ì•½ì„ ìƒì„±í•˜ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.")
+            self.logger.warning(f"recent chat summary load failed chat_id={chat_id}: {exc}")
+            lines.append("- ¸Ş½ÃÁö ÀúÀå¼Ò¸¦ ÀĞÁö ¸øÇØ ¿ä¾àÀ» »ı¼ºÇÏÁö ¸øÇß½À´Ï´Ù.")
             return "\n".join(lines).strip()
 
         raw_messages = payload.get("messages", []) if isinstance(payload, dict) else []
@@ -186,7 +189,7 @@ class DaemonService(
 
         filtered.sort(key=lambda item: (item[0], item[1]))
         if not filtered:
-            lines.append("- ìµœê·¼ ëŒ€í™”ê°€ ì—†ìŠµë‹ˆë‹¤.")
+            lines.append("- ÃÖ±Ù ´ëÈ­°¡ ¾ø½À´Ï´Ù.")
             return "\n".join(lines).strip()
 
         max_entries = max(target * 3, 90)
@@ -194,9 +197,9 @@ class DaemonService(
         if len(filtered) > max_entries:
             omitted = len(filtered) - max_entries
             filtered = filtered[-max_entries:]
-        lines.insert(3, f"- í¬í•¨ ë©”ì‹œì§€: {len(filtered)}ê°œ")
+        lines.insert(3, f"- Æ÷ÇÔ ¸Ş½ÃÁö: {len(filtered)}°³")
         if omitted > 0:
-            lines.insert(4, f"- ì˜¤ë˜ëœ í•­ëª© ìƒëµ: {omitted}ê°œ")
+            lines.insert(4, f"- ¿À·¡µÈ Ç×¸ñ »ı·«: {omitted}°³")
 
         for _, _, raw in filtered:
             msg_type = str(raw.get("type") or "").strip().lower() or "user"
@@ -208,16 +211,16 @@ class DaemonService(
             location = raw.get("location") if isinstance(raw.get("location"), dict) else {}
             suffix_parts: list[str] = []
             if file_count > 0:
-                suffix_parts.append(f"ì²¨ë¶€ {file_count}ê°œ")
+                suffix_parts.append(f"Ã·ºÎ {file_count}°³")
             if location:
                 lat = location.get("latitude")
                 lon = location.get("longitude")
                 if lat is not None and lon is not None:
-                    suffix_parts.append(f"ìœ„ì¹˜ {lat},{lon}")
+                    suffix_parts.append(f"À§Ä¡ {lat},{lon}")
             suffix = f" [{' / '.join(suffix_parts)}]" if suffix_parts else ""
 
             if not text:
-                text = "(í…ìŠ¤íŠ¸ ì—†ìŒ)"
+                text = "(ÅØ½ºÆ® ¾øÀ½)"
 
             if msg_type == "bot":
                 speaker = "BOT"
@@ -273,7 +276,7 @@ class DaemonService(
         reply_text = ""
         keyboard_rows: list[list[str]] | None = None
         if text.startswith("__cb__:") and current_mode != UI_MODE_AWAITING_RESUME_CHOICE:
-            reply_text = "ì„ íƒ ê°€ëŠ¥í•œ ëª©ë¡ì´ ë§Œë£Œë˜ì—ˆì–´ìš”. `TASK ëª©ë¡ ë³´ê¸°(ìµœê·¼20)`ë¥¼ ë‹¤ì‹œ ëˆŒëŸ¬ ì£¼ì„¸ìš”."
+            reply_text = "¼±ÅÃ °¡´ÉÇÑ ¸ñ·ÏÀÌ ¸¸·áµÇ¾ú¾î¿ä. `TASK ¸ñ·Ï º¸±â(ÃÖ±Ù20)`¸¦ ´Ù½Ã ´­·¯ ÁÖ¼¼¿ä."
             keyboard_rows = self._main_menu_keyboard_rows()
             sent = self._send_control_reply(
                 chat_id=chat_id,
@@ -289,7 +292,7 @@ class DaemonService(
             rows = self._list_recent_tasks(chat_id=chat_id, limit=20, source_limit=300)
             if not rows:
                 self._clear_ui_mode(state)
-                reply_text = "ìµœê·¼ TASK 20ê°œë¥¼ ë³´ì—¬ë“œë¦¬ë ¤ í–ˆì§€ë§Œ, ì¡°íšŒëœ TASKê°€ ì—†ìŠµë‹ˆë‹¤."
+                reply_text = "ÃÖ±Ù TASK 20°³¸¦ º¸¿©µå¸®·Á ÇßÁö¸¸, Á¶È¸µÈ TASK°¡ ¾ø½À´Ï´Ù."
                 keyboard_rows = self._main_menu_keyboard_rows()
                 inline_keyboard_rows = None
                 sent = self._send_control_reply(
@@ -309,7 +312,7 @@ class DaemonService(
                 state["resume_candidate_map"] = candidate_map
                 self._set_ui_mode(state, UI_MODE_AWAITING_RESUME_CHOICE)
                 header_text = self._render_task_list_text(rows=[], limit=20)
-                footer_text = "ìµœê·¼ìˆœìœ¼ë¡œ ì •ë ¬ë©ë‹ˆë‹¤. íŠ¹ì • ì‘ì—…(TASK)ì„ ì´ì–´ ì§„í–‰í•˜ì‹œë ¤ë©´ í•˜ë‹¨ì˜ ì„ íƒ ë²„íŠ¼ì„ ëˆŒëŸ¬ ì£¼ì„¸ìš”."
+                footer_text = "ÃÖ±Ù¼øÀ¸·Î Á¤·ÄµË´Ï´Ù. Æ¯Á¤ ÀÛ¾÷(TASK)À» ÀÌ¾î ÁøÇàÇÏ½Ã·Á¸é ÇÏ´ÜÀÇ ¼±ÅÃ ¹öÆ°À» ´­·¯ ÁÖ¼¼¿ä."
                 reply_text = footer_text
                 sent = self._send_task_cards_batch(
                     chat_id=chat_id,
@@ -327,8 +330,8 @@ class DaemonService(
             if not guide_thread_id:
                 self._clear_ui_mode(state)
                 reply_text = (
-                    "í˜„ì¬ ì„ íƒëœ TASKê°€ ì—†ìŠµë‹ˆë‹¤.\n"
-                    "ë¨¼ì € `TASK ëª©ë¡ ë³´ê¸°(ìµœê·¼20)` ë˜ëŠ” `ê¸°ì¡´ TASK ì´ì–´í•˜ê¸°`ë¡œ TASKë¥¼ ì„ íƒí•´ ì£¼ì„¸ìš”."
+                    "ÇöÀç ¼±ÅÃµÈ TASK°¡ ¾ø½À´Ï´Ù.\n"
+                    "¸ÕÀú `TASK ¸ñ·Ï º¸±â(ÃÖ±Ù20)` ¶Ç´Â `±âÁ¸ TASK ÀÌ¾îÇÏ±â`·Î TASK¸¦ ¼±ÅÃÇØ ÁÖ¼¼¿ä."
                 )
                 sent = self._send_control_reply(
                     chat_id=chat_id,
@@ -345,9 +348,9 @@ class DaemonService(
             sent = False
             if exists and guide_text.strip():
                 header_text = (
-                    f"<b>TASK ì§€ì¹¨ íŒŒì¼ ë³´ê¸°</b>\n"
-                    f"- íŒŒì¼: <code>{self._escape_telegram_html(relative_path)}</code>\n"
-                    "- ì•„ë˜ ë‚´ìš© í™•ì¸ í›„ ë³€ê²½ ìš”ì²­ì„ ë°”ë¡œ ë³´ë‚´ì£¼ì„¸ìš”."
+                    f"<b>TASK ÁöÄ§ ÆÄÀÏ º¸±â</b>\n"
+                    f"- ÆÄÀÏ: <code>{self._escape_telegram_html(relative_path)}</code>\n"
+                    "- ¾Æ·¡ ³»¿ë È®ÀÎ ÈÄ º¯°æ ¿äÃ»À» ¹Ù·Î º¸³»ÁÖ¼¼¿ä."
                 )
                 sent_header = self._telegram_send_text(
                     chat_id=chat_id,
@@ -360,7 +363,7 @@ class DaemonService(
                 chunks = _service_utils.split_text_chunks(guide_text, max_chars=DEFAULT_TASK_GUIDE_TELEGRAM_CHUNK_CHARS)
                 total_chunks = len(chunks)
                 for idx, chunk in enumerate(chunks, start=1):
-                    chunk_label = f"TASK ì§€ì¹¨ ë‚´ìš© ({idx}/{total_chunks})"
+                    chunk_label = f"TASK ÁöÄ§ ³»¿ë ({idx}/{total_chunks})"
                     body_text = (
                         f"<b>{self._escape_telegram_html(chunk_label)}</b>\n"
                         f"<pre>{self._escape_telegram_html(chunk)}</pre>"
@@ -374,19 +377,19 @@ class DaemonService(
                     )
                     sent = bool(sent or sent_chunk)
                 reply_text = (
-                    f"TASK ì§€ì¹¨ì„ ë³´ì—¬ë“œë ¸ì–´ìš”. `{relative_path}` ë³€ê²½ ìš”ì²­ì„ ë³´ë‚´ì£¼ì‹œë©´ "
-                    "ì½”ë±ìŠ¤ê°€ í•´ë‹¹ íŒŒì¼ì„ ì§ì ‘ ìˆ˜ì •í•©ë‹ˆë‹¤."
+                    f"TASK ÁöÄ§À» º¸¿©µå·È¾î¿ä. `{relative_path}` º¯°æ ¿äÃ»À» º¸³»ÁÖ½Ã¸é "
+                    "ÄÚµ¦½º°¡ ÇØ´ç ÆÄÀÏÀ» Á÷Á¢ ¼öÁ¤ÇÕ´Ï´Ù."
                 )
             elif exists:
                 reply_text = (
-                    f"`{relative_path}` íŒŒì¼ì€ ì¡´ì¬í•˜ì§€ë§Œ í˜„ì¬ ë‚´ìš©ì´ ë¹„ì–´ ìˆìŠµë‹ˆë‹¤.\n"
-                    "ì›í•˜ì‹œëŠ” ì§€ì¹¨ ë‚´ìš©ì„ ë³´ë‚´ì£¼ì‹œë©´ ì½”ë±ìŠ¤ê°€ íŒŒì¼ì„ ìˆ˜ì •í•´ ë°˜ì˜í•©ë‹ˆë‹¤."
+                    f"`{relative_path}` ÆÄÀÏÀº Á¸ÀçÇÏÁö¸¸ ÇöÀç ³»¿ëÀÌ ºñ¾î ÀÖ½À´Ï´Ù.\n"
+                    "¿øÇÏ½Ã´Â ÁöÄ§ ³»¿ëÀ» º¸³»ÁÖ½Ã¸é ÄÚµ¦½º°¡ ÆÄÀÏÀ» ¼öÁ¤ÇØ ¹İ¿µÇÕ´Ï´Ù."
                 )
             else:
                 reply_text = (
-                    f"í˜„ì¬ `{relative_path}` íŒŒì¼ì´ ì—†ìŠµë‹ˆë‹¤.\n"
-                    "`TASK ì§€ì¹¨ ì¶”ê°€ ...` ë˜ëŠ” `TASK ì§€ì¹¨ ë³€ê²½ ...`ì²˜ëŸ¼ ìš”ì²­í•´ì£¼ì‹œë©´ "
-                    "í•´ë‹¹ AGENTS.mdë¥¼ ìƒì„±í•œ ë’¤ ë°”ë¡œ ë°˜ì˜í•©ë‹ˆë‹¤."
+                    f"ÇöÀç `{relative_path}` ÆÄÀÏÀÌ ¾ø½À´Ï´Ù.\n"
+                    "`TASK ÁöÄ§ Ãß°¡ ...` ¶Ç´Â `TASK ÁöÄ§ º¯°æ ...`Ã³·³ ¿äÃ»ÇØÁÖ½Ã¸é "
+                    "ÇØ´ç AGENTS.md¸¦ »ı¼ºÇÑ µÚ ¹Ù·Î ¹İ¿µÇÕ´Ï´Ù."
                 )
             sent_footer = self._telegram_send_text(
                 chat_id=chat_id,
@@ -411,7 +414,7 @@ class DaemonService(
             self._clear_temp_task_seed(state)
             if not self.is_bot_worker or not self.bot_id:
                 self._clear_ui_mode(state)
-                reply_text = "í˜„ì¬ ì‹¤í–‰ í™˜ê²½ì—ì„œëŠ” ë´‡ ì´ë¦„ ë³€ê²½ì„ ì§€ì›í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤."
+                reply_text = "ÇöÀç ½ÇÇà È¯°æ¿¡¼­´Â º¿ ÀÌ¸§ º¯°æÀ» Áö¿øÇÏÁö ¾Ê½À´Ï´Ù."
                 sent = self._send_control_reply(
                     chat_id=chat_id,
                     message_id=message_id,
@@ -424,12 +427,12 @@ class DaemonService(
             base_name = self._resolve_bot_base_name()
             state["bot_rename_base_name"] = base_name
             self._set_ui_mode(state, UI_MODE_AWAITING_BOT_RENAME_ALIAS)
-            shown_name = base_name if base_name else "(í™•ì¸ ì‹¤íŒ¨)"
+            shown_name = base_name if base_name else "(È®ÀÎ ½ÇÆĞ)"
             reply_text = (
-                "<b>ë´‡ ì´ë¦„ ë³€ê²½</b>\n"
-                f"í˜„ì¬ ê¸°ë³¸ ì´ë¦„: <code>{self._escape_telegram_html(shown_name)}</code>\n"
-                "ì›í•˜ëŠ” ë³„ì¹­ì„ ì…ë ¥í•´ ì£¼ì„¸ìš”.\n"
-                "ì ìš© í˜•ì‹: <code>ê¸°ì¡´ì´ë¦„(ë³„ì¹­)</code>"
+                "<b>º¿ ÀÌ¸§ º¯°æ</b>\n"
+                f"ÇöÀç ±âº» ÀÌ¸§: <code>{self._escape_telegram_html(shown_name)}</code>\n"
+                "¿øÇÏ´Â º°ÄªÀ» ÀÔ·ÂÇØ ÁÖ¼¼¿ä.\n"
+                "Àû¿ë Çü½Ä: <code>±âÁ¸ÀÌ¸§(º°Äª)</code>"
             )
             sent = self._send_control_reply(
                 chat_id=chat_id,
@@ -458,8 +461,8 @@ class DaemonService(
                 self._clear_temp_task_seed(state)
                 self._clear_ui_mode(state)
                 reply_text = (
-                    "ìƒˆ TASKë¡œ ì‹œì‘í• ê²Œìš”.\n"
-                    "ë°©ê¸ˆ ë³´ë‚¸ ë‚´ìš©ì„ ì²« ìš”ì²­ìœ¼ë¡œ ì´ì–´ì„œ ì²˜ë¦¬í•©ë‹ˆë‹¤."
+                    "»õ TASK·Î ½ÃÀÛÇÒ°Ô¿ä.\n"
+                    "¹æ±İ º¸³½ ³»¿ëÀ» Ã¹ ¿äÃ»À¸·Î ÀÌ¾î¼­ Ã³¸®ÇÕ´Ï´Ù."
                 )
                 keyboard_rows = self._main_menu_keyboard_rows()
                 sent = self._send_control_reply(
@@ -476,7 +479,7 @@ class DaemonService(
                 if not seed_query:
                     self._clear_temp_task_seed(state)
                     self._set_ui_mode(state, UI_MODE_AWAITING_RESUME_QUERY)
-                    reply_text = "ì›í•˜ì‹œëŠ” TASKë¥¼ ê²€ìƒ‰í•˜ê² ìŠµë‹ˆë‹¤. ê²€ìƒ‰ì–´ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”"
+                    reply_text = "¿øÇÏ½Ã´Â TASK¸¦ °Ë»öÇÏ°Ú½À´Ï´Ù. °Ë»ö¾î¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä"
                     keyboard_rows = self._main_menu_keyboard_rows()
                     sent = self._send_control_reply(
                         chat_id=chat_id,
@@ -496,8 +499,8 @@ class DaemonService(
                 if not candidates:
                     self._set_ui_mode(state, UI_MODE_AWAITING_RESUME_QUERY)
                     reply_text = (
-                        f"`{seed_query}`ì™€ ì—°ê´€ëœ TASKë¥¼ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤. "
-                        "ë‹¤ë¥¸ í‚¤ì›Œë“œë¥¼ ì…ë ¥í•´ ì£¼ì„¸ìš”."
+                        f"`{seed_query}`¿Í ¿¬°üµÈ TASK¸¦ Ã£Áö ¸øÇß½À´Ï´Ù. "
+                        "´Ù¸¥ Å°¿öµå¸¦ ÀÔ·ÂÇØ ÁÖ¼¼¿ä."
                     )
                     keyboard_rows = self._main_menu_keyboard_rows()
                     sent = self._send_control_reply(
@@ -520,12 +523,12 @@ class DaemonService(
                 self._set_ui_mode(state, UI_MODE_AWAITING_RESUME_CHOICE)
                 query_html = self._escape_telegram_html(seed_query)
                 header_text = (
-                    "<b>ì—°ê´€ TASK í›„ë³´</b>\n"
-                    f"ê²€ìƒ‰ì–´: <code>{query_html}</code>\n"
-                    "<i>ì—°ê´€ë„ ë†’ì€ ìˆœìœ¼ë¡œ ì •ë ¬ë©ë‹ˆë‹¤. í•­ëª©ì˜ ì„ íƒ ë²„íŠ¼ì„ ëˆŒëŸ¬ ì£¼ì„¸ìš”.</i>"
+                    "<b>¿¬°ü TASK ÈÄº¸</b>\n"
+                    f"°Ë»ö¾î: <code>{query_html}</code>\n"
+                    "<i>¿¬°üµµ ³ôÀº ¼øÀ¸·Î Á¤·ÄµË´Ï´Ù. Ç×¸ñÀÇ ¼±ÅÃ ¹öÆ°À» ´­·¯ ÁÖ¼¼¿ä.</i>"
                 )
                 reply_text = header_text
-                footer_text = "ì›í•˜ì‹œëŠ” TASKì˜ ì„ íƒ ë²„íŠ¼ì„ ëˆ„ë¥´ë©´ ë°”ë¡œ ì´ì–´ì„œ ì§„í–‰í•©ë‹ˆë‹¤."
+                footer_text = "¿øÇÏ½Ã´Â TASKÀÇ ¼±ÅÃ ¹öÆ°À» ´©¸£¸é ¹Ù·Î ÀÌ¾î¼­ ÁøÇàÇÕ´Ï´Ù."
                 sent = self._send_task_cards_batch(
                     chat_id=chat_id,
                     rows=candidates,
@@ -536,7 +539,7 @@ class DaemonService(
                 self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
-            reply_text = "ìƒˆ TASKë¡œ ì‹œì‘í• ì§€, ê¸°ì¡´ TASKë¥¼ ì´ì–´ê°ˆì§€ ë²„íŠ¼ìœ¼ë¡œ ì„ íƒí•´ ì£¼ì„¸ìš”."
+            reply_text = "»õ TASK·Î ½ÃÀÛÇÒÁö, ±âÁ¸ TASK¸¦ ÀÌ¾î°¥Áö ¹öÆ°À¸·Î ¼±ÅÃÇØ ÁÖ¼¼¿ä."
             keyboard_rows = [[BUTTON_TASK_NEW, BUTTON_TASK_RESUME]]
             sent = self._send_control_reply(
                 chat_id=chat_id,
@@ -554,7 +557,7 @@ class DaemonService(
             state["resume_candidates"] = []
             state["resume_candidate_buttons"] = []
             state["resume_candidate_map"] = {}
-            reply_text = "ì›í•˜ì‹œëŠ” TASKë¥¼ ê²€ìƒ‰í•˜ê² ìŠµë‹ˆë‹¤. ê²€ìƒ‰ì–´ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”"
+            reply_text = "¿øÇÏ½Ã´Â TASK¸¦ °Ë»öÇÏ°Ú½À´Ï´Ù. °Ë»ö¾î¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä"
             keyboard_rows = self._main_menu_keyboard_rows()
             sent = self._send_control_reply(
                 chat_id=chat_id,
@@ -572,7 +575,7 @@ class DaemonService(
             state["resume_candidates"] = []
             state["resume_candidate_buttons"] = []
             state["resume_candidate_map"] = {}
-            reply_text = "ìƒˆ TASKë¡œ ì‹œì‘í•  ì§€ì‹œë¥¼ ì…ë ¥í•´ ì£¼ì„¸ìš”."
+            reply_text = "»õ TASK·Î ½ÃÀÛÇÒ Áö½Ã¸¦ ÀÔ·ÂÇØ ÁÖ¼¼¿ä."
             keyboard_rows = self._main_menu_keyboard_rows()
             sent = self._send_control_reply(
                 chat_id=chat_id,
@@ -586,7 +589,7 @@ class DaemonService(
         if text == BUTTON_MENU_BACK:
             self._clear_temp_task_seed(state)
             self._clear_ui_mode(state)
-            reply_text = "ë©”ë‰´ë¡œ ëŒì•„ì™”ì–´ìš”."
+            reply_text = "¸Ş´º·Î µ¹¾Æ¿Ô¾î¿ä."
             keyboard_rows = self._main_menu_keyboard_rows()
             sent = self._send_control_reply(
                 chat_id=chat_id,
@@ -604,7 +607,7 @@ class DaemonService(
                 limit=self.task_search_llm_limit,
             )
             if not candidates:
-                reply_text = f"`{text}`ì™€ ì—°ê´€ëœ TASKë¥¼ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤. ë‹¤ë¥¸ í‚¤ì›Œë“œë¥¼ ì…ë ¥í•´ ì£¼ì„¸ìš”."
+                reply_text = f"`{text}`¿Í ¿¬°üµÈ TASK¸¦ Ã£Áö ¸øÇß½À´Ï´Ù. ´Ù¸¥ Å°¿öµå¸¦ ÀÔ·ÂÇØ ÁÖ¼¼¿ä."
                 keyboard_rows = self._main_menu_keyboard_rows()
                 sent = self._send_control_reply(
                     chat_id=chat_id,
@@ -626,12 +629,12 @@ class DaemonService(
             self._set_ui_mode(state, UI_MODE_AWAITING_RESUME_CHOICE)
             query_html = self._escape_telegram_html(text)
             header_text = (
-                "<b>ì—°ê´€ TASK í›„ë³´</b>\n"
-                f"ê²€ìƒ‰ì–´: <code>{query_html}</code>\n"
-                "<i>ì—°ê´€ë„ ë†’ì€ ìˆœìœ¼ë¡œ ì •ë ¬ë©ë‹ˆë‹¤. í•­ëª©ì˜ ì„ íƒ ë²„íŠ¼ì„ ëˆŒëŸ¬ ì£¼ì„¸ìš”.</i>"
+                "<b>¿¬°ü TASK ÈÄº¸</b>\n"
+                f"°Ë»ö¾î: <code>{query_html}</code>\n"
+                "<i>¿¬°üµµ ³ôÀº ¼øÀ¸·Î Á¤·ÄµË´Ï´Ù. Ç×¸ñÀÇ ¼±ÅÃ ¹öÆ°À» ´­·¯ ÁÖ¼¼¿ä.</i>"
             )
             reply_text = header_text
-            footer_text = "ì›í•˜ì‹œëŠ” TASKì˜ ì„ íƒ ë²„íŠ¼ì„ ëˆ„ë¥´ë©´ ë°”ë¡œ ì´ì–´ì„œ ì§„í–‰í•©ë‹ˆë‹¤."
+            footer_text = "¿øÇÏ½Ã´Â TASKÀÇ ¼±ÅÃ ¹öÆ°À» ´©¸£¸é ¹Ù·Î ÀÌ¾î¼­ ÁøÇàÇÕ´Ï´Ù."
             sent = self._send_task_cards_batch(
                 chat_id=chat_id,
                 rows=candidates,
@@ -656,7 +659,7 @@ class DaemonService(
             else:
                 selected_task_id = self._resolve_task_choice(text=text, candidates=candidate_ids, candidate_map=candidate_map_raw)
             if callback_selected_task_id and candidate_ids and selected_task_id not in candidate_ids:
-                reply_text = "ì„ íƒ ê°€ëŠ¥í•œ ëª©ë¡ì´ ê°±ì‹ ë˜ì—ˆìŠµë‹ˆë‹¤. `TASK ëª©ë¡ ë³´ê¸°(ìµœê·¼20)`ë¥¼ ë‹¤ì‹œ ëˆŒëŸ¬ ì£¼ì„¸ìš”."
+                reply_text = "¼±ÅÃ °¡´ÉÇÑ ¸ñ·ÏÀÌ °»½ÅµÇ¾ú½À´Ï´Ù. `TASK ¸ñ·Ï º¸±â(ÃÖ±Ù20)`¸¦ ´Ù½Ã ´­·¯ ÁÖ¼¼¿ä."
                 keyboard_rows = self._main_menu_keyboard_rows()
                 sent = self._send_control_reply(
                     chat_id=chat_id,
@@ -668,10 +671,10 @@ class DaemonService(
                 return True
             if not selected_task_id:
                 if inline_only:
-                    reply_text = "ëª©ë¡ í•­ëª©ì˜ `ì„ íƒ` ë²„íŠ¼ì„ ëˆ„ë¥´ê±°ë‚˜, ë²ˆí˜¸(1,2,3...) ë˜ëŠ” TASK IDë¥¼ ì…ë ¥í•´ ì£¼ì„¸ìš”."
+                    reply_text = "¸ñ·Ï Ç×¸ñÀÇ `¼±ÅÃ` ¹öÆ°À» ´©¸£°Å³ª, ¹øÈ£(1,2,3...) ¶Ç´Â TASK ID¸¦ ÀÔ·ÂÇØ ÁÖ¼¼¿ä."
                     keyboard_rows = None
                 else:
-                    reply_text = "í›„ë³´ ë²„íŠ¼ì„ ëˆ„ë¥´ê±°ë‚˜, ë²ˆí˜¸(1,2,3...)ë¥¼ ì…ë ¥í•´ ì£¼ì„¸ìš”."
+                    reply_text = "ÈÄº¸ ¹öÆ°À» ´©¸£°Å³ª, ¹øÈ£(1,2,3...)¸¦ ÀÔ·ÂÇØ ÁÖ¼¼¿ä."
                     keyboard_rows = (
                         _service_utils.build_candidate_keyboard_rows(
                             candidate_buttons,
@@ -691,7 +694,7 @@ class DaemonService(
 
             row = self._load_task_row(chat_id=chat_id, task_id=selected_task_id, include_instrunction=False)
             if not row:
-                reply_text = f"{selected_task_id} TASKë¥¼ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤. ë‹¤ì‹œ ì„ íƒí•´ ì£¼ì„¸ìš”."
+                reply_text = f"{selected_task_id} TASK¸¦ Ã£Áö ¸øÇß½À´Ï´Ù. ´Ù½Ã ¼±ÅÃÇØ ÁÖ¼¼¿ä."
                 keyboard_rows = None if inline_only else (
                     _service_utils.build_candidate_keyboard_rows(
                         candidate_buttons,
@@ -722,8 +725,8 @@ class DaemonService(
                 self._apply_selected_task_thread_target(chat_id=chat_id, state=state)
             self._clear_ui_mode(state)
             reply_text = (
-                f"{selected_task_id} TASKë¡œ ì´ì–´ì„œ ì§„í–‰í• ê²Œìš”.\n"
-                "ì´ì œ ì´ì–´ì„œ í•  ë‚´ìš©ì„ ë³´ë‚´ì£¼ì‹œë©´ ë°”ë¡œ ì²˜ë¦¬í•©ë‹ˆë‹¤."
+                f"{selected_task_id} TASK·Î ÀÌ¾î¼­ ÁøÇàÇÒ°Ô¿ä.\n"
+                "ÀÌÁ¦ ÀÌ¾î¼­ ÇÒ ³»¿ëÀ» º¸³»ÁÖ½Ã¸é ¹Ù·Î Ã³¸®ÇÕ´Ï´Ù."
             )
             callback_source_message_id = int(item.get("callback_message_id", 0) or 0)
             keyboard_rows = self._main_menu_keyboard_rows()
@@ -735,12 +738,12 @@ class DaemonService(
             )
             used_fallback_edit = False
             if sent:
-                self._log(
+                self.logger.info(
                     f"task_select_delivery=send_first chat_id={chat_id} task_id={selected_task_id}"
                 )
             elif callback_selected_task_id and callback_source_message_id > 0:
-                self._log(
-                    "WARN: task_select_delivery send_first_failed "
+                self.logger.warning(
+                     f"task_select_delivery send_first_failed "
                     f"chat_id={chat_id} task_id={selected_task_id} callback_message_id={callback_source_message_id}"
                 )
                 sent = self._telegram_edit_message_text(
@@ -752,11 +755,11 @@ class DaemonService(
                 )
                 used_fallback_edit = bool(sent)
                 if sent:
-                    self._log(
+                    self.logger.info(
                         f"task_select_delivery=fallback_edit chat_id={chat_id} task_id={selected_task_id} callback_message_id={callback_source_message_id}"
                     )
             if sent:
-                self._log(
+                self.logger.info(
                     f"task_select_focus_mode=no_post_edit chat_id={chat_id} task_id={selected_task_id}"
                 )
             self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
@@ -778,7 +781,7 @@ class DaemonService(
                 return False
             alias = self._normalize_bot_alias(text, max_len=32)
             if not alias:
-                reply_text = "ë³„ì¹­ì´ ë¹„ì–´ ìˆìŠµë‹ˆë‹¤. 1~32ì ë³„ì¹­ì„ ì…ë ¥í•´ ì£¼ì„¸ìš”."
+                reply_text = "º°ÄªÀÌ ºñ¾î ÀÖ½À´Ï´Ù. 1~32ÀÚ º°ÄªÀ» ÀÔ·ÂÇØ ÁÖ¼¼¿ä."
                 sent = self._send_control_reply(
                     chat_id=chat_id,
                     message_id=message_id,
@@ -812,7 +815,7 @@ class DaemonService(
             if str(state.get("active_turn_id") or "").strip():
                 self._telegram_send_text(
                     chat_id=chat_id,
-                    text="í˜„ì¬ ì§„í–‰ ì¤‘ì¸ ì‘ë‹µì´ ëë‚˜ë©´ ìƒˆ TASKë¡œ ì‹œì‘í•©ë‹ˆë‹¤.",
+                    text="ÇöÀç ÁøÇà ÁßÀÎ ÀÀ´äÀÌ ³¡³ª¸é »õ TASK·Î ½ÃÀÛÇÕ´Ï´Ù.",
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
@@ -830,7 +833,7 @@ class DaemonService(
                     self._clear_temp_task_seed(state)
                     self._save_app_server_state()
                     self._sync_app_server_session_meta(active_chat_id=chat_id)
-                    self._log(
+                    self.logger.info(
                         f"cold_start_auto_resume_thread chat_id={chat_id} thread_id={recovered_thread_id} "
                         f"msg_id={msg_id}"
                     )
@@ -842,8 +845,8 @@ class DaemonService(
                 self._set_ui_mode(state, UI_MODE_AWAITING_TEMP_TASK_DECISION)
                 prompt_seed = self._escape_telegram_html(_service_utils.compact_prompt_text(text, max_len=120))
                 reply_text = (
-                    f"ë§ì”€í•˜ì‹  ë‚´ìš©(<code>{prompt_seed}</code>)ì„ ê¸°ì¤€ìœ¼ë¡œ ì‹œì‘í• ê²Œìš”.\n"
-                    "ìƒˆ TASKë¡œ ì‹œì‘í• ì§€, ê¸°ì¡´ TASKë¥¼ ì´ì–´ê°ˆì§€ ì„ íƒí•´ ì£¼ì„¸ìš”."
+                    f"¸»¾¸ÇÏ½Å ³»¿ë(<code>{prompt_seed}</code>)À» ±âÁØÀ¸·Î ½ÃÀÛÇÒ°Ô¿ä.\n"
+                    "»õ TASK·Î ½ÃÀÛÇÒÁö, ±âÁ¸ TASK¸¦ ÀÌ¾î°¥Áö ¼±ÅÃÇØ ÁÖ¼¼¿ä."
                 )
                 keyboard_rows = [[BUTTON_TASK_NEW, BUTTON_TASK_RESUME]]
                 sent = self._send_control_reply(
@@ -882,7 +885,7 @@ class DaemonService(
         try:
             pending = telegram.get_pending_messages(str(self.store_file), include_bot=False)
         except Exception as exc:
-            self._log(f"WARN: pending snapshot failed: {exc}")
+            self.logger.warning(f"pending snapshot failed: {exc}")
             return []
 
         allowed_ids = set(int(v) for v in (runtime.get("allowed_user_ids") or []))
@@ -927,8 +930,8 @@ class DaemonService(
 
     def _build_dynamic_request_line(self, pending_messages: list[dict[str, object]]) -> str:
         if not pending_messages:
-            rendered_refs = "ì—†ìŒ"
-            rendered_requests = "ìƒˆë©”ì‹œì§€ê°€ ì—†ìŠµë‹ˆë‹¤."
+            rendered_refs = "¾øÀ½"
+            rendered_requests = "»õ¸Ş½ÃÁö°¡ ¾ø½À´Ï´Ù."
         else:
             request_entries: list[str] = []
             ref_entries: list[str] = []
@@ -936,7 +939,7 @@ class DaemonService(
                 msg_id = int(item.get("message_id", 0))
                 text = _service_utils.compact_prompt_text(item.get("text", ""), max_len=320)
                 if not text:
-                    text = "(í…ìŠ¤íŠ¸ ì—†ìŒ, ì²¨ë¶€/ìœ„ì¹˜ ì •ë³´ ì°¸ê³ )"
+                    text = "(ÅØ½ºÆ® ¾øÀ½, Ã·ºÎ/À§Ä¡ Á¤º¸ Âü°í)"
                 request_entries.append(f"[msg_{msg_id}] {text}")
 
                 files_raw = item.get("files")
@@ -949,12 +952,12 @@ class DaemonService(
                                 file_types.append(file_type)
                 file_types = sorted(set(file_types))
                 file_info = (
-                    f"{len(files_raw)}ê°œ[{','.join(file_types)}]"
+                    f"{len(files_raw)}°³[{','.join(file_types)}]"
                     if isinstance(files_raw, list) and files_raw
-                    else "ì—†ìŒ"
+                    else "¾øÀ½"
                 )
 
-                location_info = "ì—†ìŒ"
+                location_info = "¾øÀ½"
                 location_raw = item.get("location")
                 if isinstance(location_raw, dict):
                     lat = location_raw.get("latitude")
@@ -962,23 +965,23 @@ class DaemonService(
                     if lat is not None and lon is not None:
                         location_info = f"{lat},{lon}"
 
-                if file_info != "ì—†ìŒ" or location_info != "ì—†ìŒ":
+                if file_info != "¾øÀ½" or location_info != "¾øÀ½":
                     ref_entries.append(f"msg_{msg_id}: files={file_info}, location={location_info}")
 
-            rendered_refs = " | ".join(ref_entries) if ref_entries else "ì—†ìŒ"
+            rendered_refs = " | ".join(ref_entries) if ref_entries else "¾øÀ½"
             rendered_requests = " | ".join(request_entries)
         task_path_hint = self._task_path_hint_for_messages(pending_messages)
 
         return (
-            f"ì°¸ì¡°ì‚¬í•­: {rendered_refs}\n"
-            "ì‘ì—… ë©”ëª¨ë¦¬ëŠ” sonolbot-tasks ìŠ¤í‚¬ ê·œì¹™ì„ ë”°ë¥¼ ê²ƒ "
-            f"({task_path_hint} ì„ ì½ê¸° ë° ë³€ê²½ ì¦‰ì‹œ ë™ê¸°í™”).\n"
-            "ìš”ì²­ì‚¬í•­ì„ ì²˜ë¦¬í•œ í›„, ì‚¬ìš©ìì—ê²Œ ì „ë‹¬í•  ìµœì¢… ë‹µë³€ ë³¸ë¬¸ë§Œ ì‘ì„±í•  ê²ƒ "
-            "(ê²°ê³¼ì—ëŠ” ì§€ì¹¨ ì¤€ìˆ˜/ë°±ê·¸ë¼ìš´ë“œ ë™ì‘ ì–¸ê¸‰ ì—†ì´ ìš”ì²­ì‚¬í•­ì— ëŒ€í•œ ì§ì ‘ì ì¸ ë‹µë³€ë§Œ í¬í•¨í•  ê²ƒ. "
-            "ì¹œì ˆí•˜ê³  ì´í•´í•˜ê¸° ì‰½ê²Œ ë‹µí•˜ë˜ ê¼­ ì•Œì•„ì•¼ í•  ì‚¬í•­ì„ ë¹ ëœ¨ë¦¬ì§€ ë§ê²ƒ)\n"
-            "ìµœì¢… ë‹µë³€ì€ í…”ë ˆê·¸ë¨ HTML íŒŒì‹± ê¸°ì¤€ìœ¼ë¡œ ì‘ì„±í•  ê²ƒ "
-            "(í•„ìš”ì‹œ <b>, <code> ìµœì†Œ ì‚¬ìš©, Markdown ë¬¸ë²•ì€ ì‚¬ìš©í•˜ì§€ ë§ ê²ƒ).\n"
-            f"ìš”ì²­ì‚¬í•­: {rendered_requests}"
+            f"ÂüÁ¶»çÇ×: {rendered_refs}\n"
+            "ÀÛ¾÷ ¸Ş¸ğ¸®´Â sonolbot-tasks ½ºÅ³ ±ÔÄ¢À» µû¸¦ °Í "
+            f"({task_path_hint} ¼±ÀĞ±â ¹× º¯°æ Áï½Ã µ¿±âÈ­).\n"
+            "¿äÃ»»çÇ×À» Ã³¸®ÇÑ ÈÄ, »ç¿ëÀÚ¿¡°Ô Àü´ŞÇÒ ÃÖÁ¾ ´äº¯ º»¹®¸¸ ÀÛ¼ºÇÒ °Í "
+            "(°á°ú¿¡´Â ÁöÄ§ ÁØ¼ö/¹é±×¶ó¿îµå µ¿ÀÛ ¾ğ±Ş ¾øÀÌ ¿äÃ»»çÇ×¿¡ ´ëÇÑ Á÷Á¢ÀûÀÎ ´äº¯¸¸ Æ÷ÇÔÇÒ °Í. "
+            "Ä£ÀıÇÏ°í ÀÌÇØÇÏ±â ½±°Ô ´äÇÏµÇ ²À ¾Ë¾Æ¾ß ÇÒ »çÇ×À» ºü¶ß¸®Áö ¸»°Í)\n"
+            "ÃÖÁ¾ ´äº¯Àº ÅÚ·¹±×·¥ HTML ÆÄ½Ì ±âÁØÀ¸·Î ÀÛ¼ºÇÒ °Í "
+            "(ÇÊ¿ä½Ã <b>, <code> ÃÖ¼Ò »ç¿ë, Markdown ¹®¹ıÀº »ç¿ëÇÏÁö ¸» °Í).\n"
+            f"¿äÃ»»çÇ×: {rendered_requests}"
         )
 
     def _build_codex_prompt(self, pending_messages: list[dict[str, object]]) -> str:
@@ -1039,7 +1042,7 @@ class DaemonService(
 
     def _stop_app_server(self, reason: str) -> None:
         if self.app_proc is not None:
-            self._log(f"Stopping app-server (reason={reason}, pid={self.app_proc.pid})")
+            self.logger.info(f"Stopping app-server (reason={reason}, pid={self.app_proc.pid})")
             try:
                 self.app_proc.terminate()
                 self.app_proc.wait(timeout=3)
@@ -1093,10 +1096,10 @@ class DaemonService(
         if existing_pid > 0 and (self.app_proc is None or existing_pid != int(self.app_proc.pid)):
             if _is_pid_alive(existing_pid):
                 if self._is_codex_app_server_pid(existing_pid):
-                    self._log(f"app_server_existing_pid_running pid={existing_pid}; skip duplicate start")
+                    self.logger.info(f"app_server_existing_pid_running pid={existing_pid}; skip duplicate start")
                     return False
-                self._log(
-                    f"WARN: stale codex pid file points to non app-server process pid={existing_pid}; clearing"
+                self.logger.warning(
+                    f"stale codex pid file points to non app-server process pid={existing_pid}; clearing"
                 )
             try:
                 self.codex_pid_file.unlink()
@@ -1122,7 +1125,7 @@ class DaemonService(
         except Exception as exc:
             self.app_proc = None
             self._release_app_server_lock()
-            self._log(f"ERROR: failed to start app-server: {exc}")
+            self.logger.error(f"failed to start app-server: {exc}")
             return False
 
         self.app_proc_generation += 1
@@ -1141,7 +1144,7 @@ class DaemonService(
             timeout_sec=20.0,
         )
         if init_result is None:
-            self._log("ERROR: app-server initialize failed")
+            self.logger.error(f"app-server initialize failed")
             self._stop_app_server("initialize_failed")
             return False
         self._app_notify("initialized")
@@ -1175,7 +1178,7 @@ class DaemonService(
             session_id="",
         )
         self._sync_app_server_session_meta()
-        self._log(f"app-server started pid={self.app_proc.pid} listen={self.app_server_listen}")
+        self.logger.info(f"app-server started pid={self.app_proc.pid} listen={self.app_server_listen}")
         return True
 
     def _group_pending_by_chat(self, messages: list[dict[str, Any]]) -> dict[int, list[dict[str, Any]]]:
@@ -1205,16 +1208,16 @@ class DaemonService(
     ) -> str:
         parts: list[str] = []
         if steering:
-            parts.append("ì¶”ê°€ ì§€ì‹œì‚¬í•­:")
+            parts.append("Ãß°¡ Áö½Ã»çÇ×:")
         if carryover_summary:
-            parts.append("ì´ì „ ëŒ€í™” í•µì‹¬ ìš”ì•½:\n" + carryover_summary)
+            parts.append("ÀÌÀü ´ëÈ­ ÇÙ½É ¿ä¾à:\n" + carryover_summary)
         if selected_task_packet:
             parts.append(selected_task_packet)
         if resume_recent_chat_summary:
-            parts.append("í˜„ì¬ ì±— ìµœê·¼ ëŒ€í™” ìš”ì•½:\n" + resume_recent_chat_summary)
+            parts.append("ÇöÀç Ãª ÃÖ±Ù ´ëÈ­ ¿ä¾à:\n" + resume_recent_chat_summary)
         body = self._build_dynamic_request_line(messages)
         if task_packet:
-            body = body + "\n\nì‘ì—… ë©”ëª¨ë¦¬ ìš”ì•½:\n" + task_packet
+            body = body + "\n\nÀÛ¾÷ ¸Ş¸ğ¸® ¿ä¾à:\n" + task_packet
         parts.append(body)
         return "\n\n".join(part for part in parts if str(part).strip())
 
@@ -1244,7 +1247,7 @@ class DaemonService(
         return new_items
 
     def _handle_signal(self, signum: int, _frame: object) -> None:
-        self._log(f"Signal received: {signum}")
+        self.logger.info(f"Signal received: {signum}")
         self.stop_requested = True
 
     def _has_app_stateful_work(self) -> bool:
@@ -1305,7 +1308,7 @@ class DaemonService(
     def _run_doc_runtime_check(self) -> None:
         checker_path = self.root / "src" / "sonolbot" / "tools" / "check_docs_alignment.py"
         if not checker_path.exists():
-            self._log(f"WARN: docs alignment checker missing: {checker_path}")
+            self.logger.warning(f"docs alignment checker missing: {checker_path}")
             return
         try:
             proc = subprocess.run(
@@ -1318,7 +1321,7 @@ class DaemonService(
                 check=False,
             )
         except Exception as exc:
-            self._log(f"WARN: docs alignment checker execution failed: {exc}")
+            self.logger.warning(f"docs alignment checker execution failed: {exc}")
             return
         if proc.returncode == 0:
             return
@@ -1326,10 +1329,10 @@ class DaemonService(
         stderr = (proc.stderr or "").strip()
         if stdout:
             for line in stdout.splitlines():
-                self._log(f"[docs-check] {line}")
+                self.logger.info(f"[docs-check] {line}")
         if stderr:
             for line in stderr.splitlines():
-                self._log(f"[docs-check][stderr] {line}")
+                self.logger.info(f"[docs-check][stderr] {line}")
 
     def _run_main_cycle(self) -> int:
         self._cleanup_logs()
@@ -1337,7 +1340,7 @@ class DaemonService(
         self._rotate_activity_log_if_needed(force=False)
         rc = self._run_quick_check()
         if rc not in (0, 1):
-            self._log(f"quick_check failed rc={rc}")
+            self.logger.info(f"quick_check failed rc={rc}")
             return rc
 
         self._app_process_cycle()
@@ -1345,7 +1348,7 @@ class DaemonService(
 
     def drain_pending_once(self, max_cycles: int = 120, sleep_sec: float = 1.0, use_lock: bool = True) -> int:
         if not shutil.which("codex"):
-            self._log("ERROR: codex CLI not found in PATH")
+            self.logger.error("codex CLI not found in PATH")
             return 1
 
         locked = False
@@ -1354,7 +1357,7 @@ class DaemonService(
                 self._acquire_lock()
                 locked = True
             except Exception as exc:
-                self._log(f"ERROR: cannot acquire daemon lock for drain mode: {exc}")
+                self.logger.error(f"cannot acquire daemon lock for drain mode: {exc}")
                 return 1
 
         try:
@@ -1373,7 +1376,7 @@ class DaemonService(
 
                 time.sleep(pause)
 
-            self._log(f"WARN: drain mode reached max_cycles={cycles} before idle")
+            self.logger.warning(f"drain mode reached max_cycles={cycles} before idle")
             return 1
         finally:
             self._stop_app_server("drain_mode_done")
@@ -1382,7 +1385,7 @@ class DaemonService(
 
     def run(self) -> int:
         if not shutil.which("codex"):
-            self._log("ERROR: codex CLI not found in PATH")
+            self.logger.error("codex CLI not found in PATH")
             return 1
 
         signal.signal(signal.SIGINT, self._handle_signal)
@@ -1392,9 +1395,9 @@ class DaemonService(
         try:
             self._acquire_lock()
         except Exception as exc:
-            self._log(f"ERROR: {exc}")
+            self.logger.error(f"{exc}")
             return 1
-        self._log(
+        self.logger.info(
             "Daemon started "
             f"pid={os.getpid()} poll={self.poll_interval_sec}s idle_timeout={self.idle_timeout_sec}s "
             f"worker={self.is_bot_worker} bot_id={self.bot_id or '-'} "
@@ -1424,8 +1427,15 @@ class DaemonService(
         finally:
             self._stop_app_server("daemon_shutdown")
             self._release_lock()
-            self._log("Daemon stopped")
+            self.logger.info("Daemon stopped")
         return 0
+
+
+
+
+
+
+
 
 
 

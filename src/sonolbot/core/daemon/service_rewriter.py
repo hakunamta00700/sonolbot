@@ -99,14 +99,14 @@ class DaemonServiceRewriterRuntime:
                 if time.time() >= deadline:
                     if time.time() - self._lock_busy_logged_at >= 1.0:
                         try:
-                            self._owner._log(f"WARN: failed to acquire agent-rewriter lock: {exc}")
+                            self._owner.logger.warning(f"failed to acquire agent-rewriter lock: {exc}")
                         except Exception:
                             pass
                         self._lock_busy_logged_at = time.time()
                     return False
                 if time.time() - last_warned >= 1.0:
                     try:
-                        self._owner._log(f"WARN: waiting for agent-rewriter lock: {exc}")
+                        self._owner.logger.warning(f"waiting for agent-rewriter lock: {exc}")
                     except Exception:
                         pass
                     last_warned = time.time()
@@ -347,7 +347,7 @@ class DaemonServiceRewriterMixin:
                 self._write_agent_rewriter_log("SEND", rendered)
                 return True
             except Exception as exc:
-                self._log(f"WARN: agent-rewriter send failed: {exc}")
+                self.logger.warning(f"agent-rewriter send failed: {exc}")
                 return False
 
     def _rewriter_notify(self, method: str, params: dict[str, Any] | None = None) -> bool:
@@ -384,13 +384,13 @@ class DaemonServiceRewriterMixin:
         try:
             reply = response_q.get(timeout=max(1.0, float(wait_sec)))
         except queue.Empty:
-            self._log(f"WARN: agent-rewriter request timeout method={method} id={req_id}")
+            self.logger.warning(f"agent-rewriter request timeout method={method} id={req_id}")
             with self.rewriter_req_lock:
                 self.rewriter_pending_responses.pop(req_id, None)
             return None
 
         if "error" in reply:
-            self._log(f"WARN: agent-rewriter request error method={method} id={req_id} error={reply.get('error')}")
+            self.logger.warning(f"agent-rewriter request error method={method} id={req_id} error={reply.get('error')}")
             return None
         result = reply.get("result")
         if isinstance(result, dict):
@@ -431,17 +431,17 @@ class DaemonServiceRewriterMixin:
             payload = {"id": req_id, "result": {"decision": "approved"}}
         else:
             payload = {"id": req_id, "result": {}}
-            self._log(f"WARN: unhandled agent-rewriter request method={method}, replied with empty result")
+            self.logger.warning(f"unhandled agent-rewriter request method={method}, replied with empty result")
 
         if not self._rewriter_send_json(payload):
-            self._log(f"WARN: failed to send agent-rewriter request response method={method} id={req_id}")
+            self.logger.warning(f"failed to send agent-rewriter request response method={method} id={req_id}")
 
     def _rewriter_dispatch_incoming(self, line: str) -> None:
         self._write_agent_rewriter_log("RECV", line)
         try:
             obj = json.loads(line)
         except json.JSONDecodeError:
-            self._log(f"WARN: non-json agent-rewriter output: {line[:180]}")
+            self.logger.warning(f"non-json agent-rewriter output: {line[:180]}")
             return
         if not isinstance(obj, dict):
             return
@@ -468,7 +468,7 @@ class DaemonServiceRewriterMixin:
         try:
             self.rewriter_event_queue.put_nowait(obj)
         except Exception:
-            self._log("WARN: agent-rewriter event queue full; dropping event")
+            self.logger.warning(f"agent-rewriter event queue full; dropping event")
 
     def _rewriter_stdout_reader(self) -> None:
         proc = self.rewriter_proc
@@ -490,7 +490,7 @@ class DaemonServiceRewriterMixin:
                 continue
             self._write_agent_rewriter_log("ERR", line)
             if "ERROR" in line or "WARN" in line:
-                self._log(f"[agent-rewriter][stderr] {line}")
+                self.logger.info(f"[agent-rewriter][stderr] {line}")
 
     def _rewriter_process_notification(self, event: dict[str, Any]) -> None:
         method = str(event.get("method") or "")
@@ -539,7 +539,7 @@ class DaemonServiceRewriterMixin:
             try:
                 self._rewriter_process_notification(event)
             except Exception as exc:
-                self._log(f"WARN: agent-rewriter event handling failed: {exc}")
+                self.logger.warning(f"agent-rewriter event handling failed: {exc}")
 
     def _rewriter_wait_turn_result(self, turn_id: str, timeout_sec: float) -> dict[str, Any] | None:
         if not turn_id:
@@ -562,14 +562,14 @@ class DaemonServiceRewriterMixin:
         user_hint = self._load_latest_user_hint(chat_id=chat_id, state=state)
         selected_task_id = _service_utils.normalize_task_id_token(state.get("selected_task_id"))
         lines = [
-            "아래 원문 안내를 지침에 맞는 사용자 진행 안내문으로 재작성하라.",
-            f"- 최근 사용자 요청: {user_hint or '(없음)'}",
-            f"- 선택된 TASK 식별자: {selected_task_id or '(없음)'}",
-            "- 출력 형식: 텔레그램 HTML 파싱 기준(필요 시 <b>, <code>만 최소 사용, Markdown 문법 금지)",
-            "- 원문 안내:",
-            _service_utils.compact_prompt_text(raw_text, max_len=1200) or "(비어 있음)",
+            "?�래 ?�문 ?�내�?지침에 맞는 ?�용??진행 ?�내문으�??�작?�하??",
+            f"- 최근 ?�용???�청: {user_hint or '(?�음)'}",
+            f"- ?�택??TASK ?�별?? {selected_task_id or '(?�음)'}",
+            "- 출력 ?�식: ?�레그램 HTML ?�싱 기�?(?�요 ??<b>, <code>�?최소 ?�용, Markdown 문법 금�?)",
+            "- ?�문 ?�내:",
+            _service_utils.compact_prompt_text(raw_text, max_len=1200) or "(비어 ?�음)",
             "",
-            "결과 문장만 출력하라.",
+            "결과 문장�?출력?�라.",
         ]
         return "\n".join(lines).strip()
 
@@ -581,26 +581,26 @@ class DaemonServiceRewriterMixin:
                 user_hint = raw_compact
         if user_hint:
             return (
-                f"요청하신 '{user_hint}' 내용을 더 정확히 설명드리기 위해 관련 내용을 확인하고 핵심을 정리하는 중입니다. "
-                "잠시만 기다려 주시면 이해하기 쉽게 이어서 안내드릴게요."
+                f"?�청?�신 '{user_hint}' ?�용?????�확???�명?�리�??�해 관???�용???�인?�고 ?�심???�리?�는 중입?�다. "
+                "?�시�?기다??주시�??�해?�기 ?�게 ?�어???�내?�릴게요."
             )
         return (
-            "요청하신 내용을 정확하게 설명드리기 위해 관련 내용을 확인하고 핵심을 정리하는 중입니다. "
-            "잠시만 기다려 주시면 이해하기 쉽게 이어서 안내드릴게요."
+            "?�청?�신 ?�용???�확?�게 ?�명?�리�??�해 관???�용???�인?�고 ?�심???�리?�는 중입?�다. "
+            "?�시�?기다??주시�??�해?�기 ?�게 ?�어???�내?�릴게요."
         )
 
     def _normalize_agent_rewriter_output(self, text: str) -> str:
         normalized = str(text or "").strip()
         if not normalized:
             return ""
-        normalized = re.sub(r"^\s*(재작성 결과[:：]\s*)", "", normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r"^\s*(?�작??결과[:�?\s*)", "", normalized, flags=re.IGNORECASE)
         normalized = re.sub(r"\s+\n", "\n", normalized)
         normalized = re.sub(r"\n{3,}", "\n\n", normalized)
         return _service_utils.compact_prompt_text(normalized, max_len=700)
 
     def _stop_agent_rewriter(self, reason: str) -> None:
         if self.rewriter_proc is not None:
-            self._log(f"Stopping agent-rewriter (reason={reason}, pid={self.rewriter_proc.pid})")
+            self.logger.info(f"Stopping agent-rewriter (reason={reason}, pid={self.rewriter_proc.pid})")
             try:
                 self.rewriter_proc.terminate()
                 self.rewriter_proc.wait(timeout=3)
@@ -637,12 +637,12 @@ class DaemonServiceRewriterMixin:
             return
         try:
             shutil.rmtree(workspace_resolved)
-            self._log(
+            self.logger.info(
                 f"agent-rewriter workspace cleaned reason={reason} path={workspace_resolved}"
             )
         except OSError as exc:
-            self._log(
-                f"WARN: failed to clean agent-rewriter workspace "
+            self.logger.warning(
+                f"failed to clean agent-rewriter workspace "
                 f"reason={reason} path={workspace_resolved}: {exc}"
             )
 
@@ -658,7 +658,7 @@ class DaemonServiceRewriterMixin:
             self._secure_file(agents_path)
             return True
         except OSError as exc:
-            self._log(f"ERROR: failed to write rewriter AGENTS.md path={agents_path}: {exc}")
+            self.logger.error(f"failed to write rewriter AGENTS.md path={agents_path}: {exc}")
             return False
 
     def _ensure_agent_rewriter(self) -> bool:
@@ -677,10 +677,10 @@ class DaemonServiceRewriterMixin:
         if existing_pid > 0 and (self.rewriter_proc is None or existing_pid != int(self.rewriter_proc.pid)):
             if _is_pid_alive(existing_pid):
                 if self._is_codex_app_server_pid(existing_pid):
-                    self._log(f"agent_rewriter_existing_pid_running pid={existing_pid}; skip duplicate start")
+                    self.logger.info(f"agent_rewriter_existing_pid_running pid={existing_pid}; skip duplicate start")
                     return False
-                self._log(
-                    f"WARN: stale rewriter pid file points to non app-server process pid={existing_pid}; clearing"
+                self.logger.warning(
+                    f"stale rewriter pid file points to non app-server process pid={existing_pid}; clearing"
                 )
             try:
                 self.agent_rewriter_pid_file.unlink()
@@ -713,7 +713,7 @@ class DaemonServiceRewriterMixin:
         except Exception as exc:
             self.rewriter_proc = None
             self._release_agent_rewriter_lock()
-            self._log(f"ERROR: failed to start agent-rewriter: {exc}")
+            self.logger.error(f"failed to start agent-rewriter: {exc}")
             return False
 
         threading.Thread(target=self._rewriter_stdout_reader, daemon=True).start()
@@ -731,11 +731,11 @@ class DaemonServiceRewriterMixin:
             timeout_sec=15.0,
         )
         if init_result is None:
-            self._log("ERROR: agent-rewriter initialize failed")
+            self.logger.error(f"agent-rewriter initialize failed")
             self._stop_agent_rewriter("initialize_failed")
             return False
         self._rewriter_notify("initialized")
-        self._log(f"agent-rewriter started pid={self.rewriter_proc.pid} listen={self.app_server_listen}")
+        self.logger.info(f"agent-rewriter started pid={self.rewriter_proc.pid} listen={self.app_server_listen}")
         return True
 
     def _agent_rewriter_attach_or_create_thread(self, chat_id: int) -> str:
@@ -777,7 +777,7 @@ class DaemonServiceRewriterMixin:
             return ""
         self.rewriter_chat_threads[int(chat_id)] = thread_id
         self._save_agent_rewriter_state()
-        self._log(f"agent-rewriter thread started chat_id={chat_id} thread_id={thread_id}")
+        self.logger.info(f"agent-rewriter thread started chat_id={chat_id} thread_id={thread_id}")
         return thread_id
 
     def _rewrite_agent_message(
@@ -832,8 +832,8 @@ class DaemonServiceRewriterMixin:
             if not rewritten:
                 continue
             if self._contains_internal_agent_text(rewritten):
-                self._log(
-                    f"WARN: agent-rewriter output contained internal terms chat_id={chat_id} "
+                self.logger.warning(
+                    f"agent-rewriter output contained internal terms chat_id={chat_id} "
                     f"attempt={attempt}/{attempts}"
                 )
                 continue
@@ -862,6 +862,9 @@ class DaemonServiceRewriterMixin:
                     else:
                         selected = str(first).strip()
                 if not selected:
-                    selected = "확인"
+                    selected = "?�인"
                 answers[qid] = {"answers": [selected]}
         return {"answers": answers}
+
+
+
