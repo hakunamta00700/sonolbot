@@ -4,6 +4,7 @@ import inspect
 import sys
 import types
 import unittest
+import tempfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -57,8 +58,116 @@ if DaemonService is None:
 
 
 else:
+    class _FakeServiceConfig:
+        def __init__(self, base: Path) -> None:
+            self.root = base
+            self.logs_dir = base / "logs"
+            self.tasks_dir = base / "tasks"
+            self.store_file = base / "telegram_messages.json"
+            self.codex_work_dir = base
+            self.state_dir = base / "state"
+            self.chat_locks_dir = base / "chat_locks"
+            self.agent_rewriter_workspace = base / "agent_rewriter_workspace"
+
+        def as_dict(self) -> dict[str, object]:
+            return {
+                "root": self.root,
+                "logs_dir": self.logs_dir,
+                "tasks_dir": self.tasks_dir,
+                "store_file": self.store_file,
+                "codex_work_dir": self.codex_work_dir,
+                "state_dir": self.state_dir,
+                "chat_locks_dir": self.chat_locks_dir,
+                "agent_rewriter_workspace": self.agent_rewriter_workspace,
+            }
 
     class TestDaemonServiceSignatureDI(unittest.TestCase):
+        def test_daemon_service_core_runtime_injection_is_forwarded(self) -> None:
+            captured: dict[str, object] = {}
+            import sonolbot.core.daemon.service as service_module
+
+            original_from_env = service_module.DaemonServiceConfig.from_env
+            original_init_core_runtime = DaemonService._init_core_runtime
+            original_init_telegram_runtime = DaemonService._init_telegram_runtime
+            original_init_task_runtime = DaemonService._init_task_runtime
+            original_init_app_runtime = DaemonService._init_app_runtime
+            original_init_lease_runtime = DaemonService._init_lease_runtime
+            original_harden = DaemonService._harden_sensitive_permissions
+            original_init_rewriter_runtime = DaemonService._init_rewriter_runtime
+            original_cleanup_activity_logs = getattr(DaemonService, "_cleanup_activity_logs", None)
+            original_rotate_activity_log = getattr(DaemonService, "_rotate_activity_log_if_needed", None)
+            original_log = getattr(DaemonService, "_log", None)
+            core_marker = object()
+
+            try:
+                with tempfile.TemporaryDirectory() as td:
+                    base = Path(td)
+                    config = _FakeServiceConfig(base)
+
+                    def fake_from_env() -> tuple[object, list[str]]:
+                        return config, []
+
+                    def fake_init_core_runtime(
+                        self,
+                        core_runtime=None,
+                        *,
+                        env_policy=None,
+                        python_policy=None,
+                    ) -> None:
+                        captured["core_runtime"] = core_runtime
+                        captured["env_policy"] = env_policy
+                        captured["python_policy"] = python_policy
+                        self._core_runtime_component = core_marker
+
+                    def noop(*_args: object, **_kwargs: object) -> None:
+                        return None
+
+                    service_module.DaemonServiceConfig.from_env = fake_from_env
+                    DaemonService._init_core_runtime = fake_init_core_runtime
+                    DaemonService._init_telegram_runtime = noop
+                    DaemonService._init_task_runtime = noop
+                    DaemonService._init_app_runtime = noop
+                    DaemonService._init_lease_runtime = noop
+                    DaemonService._harden_sensitive_permissions = noop
+                    DaemonService._init_rewriter_runtime = noop
+                    DaemonService._cleanup_activity_logs = noop
+                    DaemonService._rotate_activity_log_if_needed = noop
+                    DaemonService._log = noop
+
+                    runtime = object()
+                    env_policy = object()
+                    python_policy = object()
+                    service = DaemonService(
+                        core_runtime=runtime,
+                        core_env_policy=env_policy,
+                        core_python_policy=python_policy,
+                    )
+
+                    self.assertIs(captured.get("core_runtime"), runtime)
+                    self.assertIs(captured.get("env_policy"), env_policy)
+                    self.assertIs(captured.get("python_policy"), python_policy)
+                    self.assertIs(service._core_runtime_component, core_marker)
+            finally:
+                service_module.DaemonServiceConfig.from_env = original_from_env
+                DaemonService._init_core_runtime = original_init_core_runtime
+                DaemonService._init_telegram_runtime = original_init_telegram_runtime
+                DaemonService._init_task_runtime = original_init_task_runtime
+                DaemonService._init_app_runtime = original_init_app_runtime
+                DaemonService._init_lease_runtime = original_init_lease_runtime
+                DaemonService._harden_sensitive_permissions = original_harden
+                DaemonService._init_rewriter_runtime = original_init_rewriter_runtime
+                if original_cleanup_activity_logs is None:
+                    del DaemonService._cleanup_activity_logs
+                else:
+                    DaemonService._cleanup_activity_logs = original_cleanup_activity_logs
+                if original_rotate_activity_log is None:
+                    del DaemonService._rotate_activity_log_if_needed
+                else:
+                    DaemonService._rotate_activity_log_if_needed = original_rotate_activity_log
+                if original_log is None:
+                    del DaemonService._log
+                else:
+                    DaemonService._log = original_log
         def test_daemon_service_ctor_includes_core_runtime_kwargs(self) -> None:
             signature = inspect.signature(DaemonService.__init__)
             params = signature.parameters
@@ -66,5 +175,6 @@ else:
             for name in ("core_runtime", "core_env_policy", "core_python_policy"):
                 self.assertIn(name, params)
 
+            self.assertEqual(params["core_runtime"].default, None)
             self.assertEqual(params["core_env_policy"].default, None)
             self.assertEqual(params["core_python_policy"].default, None)
