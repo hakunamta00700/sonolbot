@@ -15,7 +15,7 @@ Rules
   - Replace direct send/finalize pairs with helper
 - [x] R1-3: Use `_send_control_reply(...)` in `_handle_single_control_message`
   - Replace repeated `sent = ...` + finalize call for simple control-message branches
-- [ ] R1-4: Run syntax check and commit
+- [x] R1-4: Run syntax check and commit
 
 ## 2) Telegram transport helper consolidation (Priority 2)
 - [ ] R2-1: Add internal `_telegram_send_text_once(...)` helper for raw payload send attempts
