@@ -152,3 +152,10 @@
 - [x] 테스트: `python -m py_compile tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
 - [x] 체크: `rg -n \"ignores_policies_when_runtime_injected|_NoDisplayPolicy|_BlankPythonPolicy\" tests/test_service_core_runtime_di.py`
 - [x] 커밋: `test: verify injected runtime ignores policy overrides`
+
+## 우선순위 20: Core 정책 타입을 프로토콜로 정리
+- [x] 작업: `DaemonServiceCoreEnvPolicy`/`DaemonServiceCorePythonPolicy`를 구조타입(Protocol)로 분리
+- [x] 작업: `DaemonServiceCoreRuntime`/`DaemonServiceCoreMixin` 생성자 타입을 프로토콜 기반으로 교체
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py`
+- [x] 체크: `rg -n \"Protocol|DaemonServiceCoreEnvPolicyProtocol|DaemonServiceCorePythonPolicyProtocol|env_policy:\" src/sonolbot/core/daemon/service_core.py`
+- [x] 커밋: `refactor(core): type policies with protocols`

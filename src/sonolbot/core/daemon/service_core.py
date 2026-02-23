@@ -3,9 +3,19 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Protocol
 
 from sonolbot.core.daemon.runtime_shared import *
+
+
+class DaemonServiceCoreEnvPolicyProtocol(Protocol):
+    def build_default_env(self, base_env: dict[str, str] | None = None) -> dict[str, str]: ...
+
+    def has_gui_session(self, env: dict[str, str]) -> bool: ...
+
+
+class DaemonServiceCorePythonPolicyProtocol(Protocol):
+    def build_venv_python_paths(self, root: Path) -> list[Path]: ...
 
 
 class DaemonServiceCoreEnvPolicy:
@@ -40,8 +50,8 @@ class DaemonServiceCoreRuntime:
     def __init__(
         self,
         service: Any,
-        env_policy: DaemonServiceCoreEnvPolicy | None = None,
-        python_policy: DaemonServiceCorePythonPolicy | None = None,
+        env_policy: DaemonServiceCoreEnvPolicyProtocol | None = None,
+        python_policy: DaemonServiceCorePythonPolicyProtocol | None = None,
     ) -> None:
         self.service = service
         self.env_policy = env_policy or DaemonServiceCoreEnvPolicy()
@@ -88,8 +98,8 @@ class DaemonServiceCoreMixin:
         self,
         core_runtime: DaemonServiceCoreRuntime | None = None,
         *,
-        env_policy: DaemonServiceCoreEnvPolicy | None = None,
-        python_policy: DaemonServiceCorePythonPolicy | None = None,
+        env_policy: DaemonServiceCoreEnvPolicyProtocol | None = None,
+        python_policy: DaemonServiceCorePythonPolicyProtocol | None = None,
     ) -> None:
         if core_runtime is None:
             core_runtime = DaemonServiceCoreRuntime(self, env_policy=env_policy, python_policy=python_policy)
