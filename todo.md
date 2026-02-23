@@ -27,6 +27,6 @@ Progress
 - [x] Mark phase complete in this TODO and commit
 
 ## 4) Risk sweep
-- [ ] Re-check edge cases: env parsing, parse mode fallback, path resolution
+- [x] Re-check edge cases: env parsing, parse mode fallback, path resolution
 - [ ] Re-check exception paths and startup behavior
 - [ ] Mark phase complete in this TODO and commit

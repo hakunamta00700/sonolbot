@@ -141,9 +141,9 @@ class DaemonServiceConfig:
             os.getenv("DAEMON_ACTIVITY_FILE", str(logs_dir / "codex-app-server.log"))
         ).resolve()
 
-        poll_interval_sec = int(os.getenv("DAEMON_POLL_INTERVAL_SEC", "1"))
-        idle_timeout_sec = int(os.getenv("DAEMON_IDLE_TIMEOUT_SEC", "600"))
-        log_retention_days = int(os.getenv("LOG_RETENTION_DAYS", "7"))
+        poll_interval_sec = _env_int("DAEMON_POLL_INTERVAL_SEC", 1, minimum=0)
+        idle_timeout_sec = _env_int("DAEMON_IDLE_TIMEOUT_SEC", 600, minimum=0)
+        log_retention_days = _env_int("LOG_RETENTION_DAYS", 7, minimum=1)
         activity_max_bytes = _env_int("DAEMON_ACTIVITY_MAX_BYTES", _constants.DEFAULT_ACTIVITY_MAX_BYTES, minimum=1)
         activity_backup_count = _env_int(
             "DAEMON_ACTIVITY_BACKUP_COUNT", _constants.DEFAULT_ACTIVITY_BACKUP_COUNT, minimum=0
