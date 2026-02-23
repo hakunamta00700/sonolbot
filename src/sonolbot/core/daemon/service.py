@@ -1658,6 +1658,33 @@ class DaemonService:
         if sent:
             self._finalize_control_message(chat_id=chat_id, message_id=message_id, reply_text=reply_text)
 
+    def _send_control_reply(
+        self,
+        chat_id: int,
+        message_id: int,
+        reply_text: str,
+        *,
+        keyboard_rows: list[list[str]] | None = None,
+        inline_keyboard_rows: list[list[dict[str, str]]] | None = None,
+        parse_mode: str | None = None,
+        request_max_attempts: int = 1,
+    ) -> bool:
+        sent = self._telegram_send_text(
+            chat_id=chat_id,
+            text=reply_text,
+            keyboard_rows=keyboard_rows,
+            inline_keyboard_rows=inline_keyboard_rows,
+            request_max_attempts=request_max_attempts,
+            parse_mode=parse_mode,
+        )
+        self._finalize_control_message_if_sent(
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_text=reply_text,
+            sent=sent,
+        )
+        return sent
+
     def _run_task_commands_json(self, args: list[str], timeout_sec: float = 25.0) -> dict[str, Any] | None:
         cmd = [self.python_bin, "-m", "sonolbot.tools.task_commands", *args]
         try:
