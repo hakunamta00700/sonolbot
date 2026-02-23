@@ -1,4 +1,4 @@
-# Daemon Service Refactor TODO (Rebased)
+﻿# Daemon Service Refactor TODO (Rebased v2)
 
 Goal: split `src/sonolbot/core/daemon/service.py` responsibilities so each section is easier to maintain and safer to change.
 
@@ -21,12 +21,16 @@ Rules
 - [x] P2-2: Refactor `_write_app_server_log` / `_write_agent_rewriter_log` to use shared helper
 - [x] P2-3: Keep behavior identical; run syntax check and commit
 
-## 3) Phase 3: Interaction boundary cleanup (Priority 3)
+## 3) Phase 3: Interaction rendering cleanup (Priority 3)
 - [x] P3-1: Review large command handlers and extract any new helper candidates
 - [x] P3-2: Move repeated task-card rendering blocks into dedicated helper(s)
 - [x] P3-3: Run syntax check and commit
 
-## 4) Phase 4: Risk sweep
-- [x] R1: Re-check env/parse-mode startup edges (including missing/invalid prompt files)
-- [x] R2: Re-check exception paths around persistence/logging startup
-- [x] R3: Final checklist + commit
+## 4) Phase 4: Control boundary cleanup (Priority 4)
+- [x] P4-1: Extract helper to finalize control message only when send succeeds
+- [x] P4-2: Replace `_handle_single_control_message` repeated `if sent: finalize` branches with helper usage
+- [ ] P4-3: Run syntax check and commit
+
+## 5) Phase 5: Risk sweep
+- [ ] R1: Re-scan startup/parse-mode/exception edges touched by refactors
+- [ ] R2: Final checklist + commit

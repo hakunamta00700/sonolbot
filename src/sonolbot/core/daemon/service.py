@@ -1648,6 +1648,16 @@ class DaemonService:
         if changed > 0:
             self._remember_completed_message_ids({int(message_id)})
 
+    def _finalize_control_message_if_sent(
+        self,
+        chat_id: int,
+        message_id: int,
+        reply_text: str,
+        sent: bool,
+    ) -> None:
+        if sent:
+            self._finalize_control_message(chat_id=chat_id, message_id=message_id, reply_text=reply_text)
+
     def _run_task_commands_json(self, args: list[str], timeout_sec: float = 25.0) -> dict[str, Any] | None:
         cmd = [self.python_bin, "-m", "sonolbot.tools.task_commands", *args]
         try:
@@ -1821,8 +1831,7 @@ class DaemonService:
                 keyboard_rows=self._main_menu_keyboard_rows(),
                 request_max_attempts=1,
             )
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         target_path = self._task_agents_path(chat_id=chat_id, thread_id=target_thread_id)
@@ -1839,8 +1848,7 @@ class DaemonService:
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
         rewritten_request = self._build_task_agents_edit_request_text(
@@ -2701,8 +2709,7 @@ class DaemonService:
             reply_text = "선택 가능한 목록이 만료되었어요. `TASK 목록 보기(최근20)`를 다시 눌러 주세요."
             keyboard_rows = self._main_menu_keyboard_rows()
             sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if text == BUTTON_TASK_LIST_RECENT20:
@@ -2763,8 +2770,7 @@ class DaemonService:
                     request_max_attempts=1,
                 )
                 sent = bool(sent or sent_footer)
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if text == BUTTON_TASK_GUIDE_VIEW:
@@ -2782,8 +2788,7 @@ class DaemonService:
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             relative_path = self._task_agents_relative_path(chat_id=chat_id, thread_id=guide_thread_id)
@@ -2842,8 +2847,7 @@ class DaemonService:
                 request_max_attempts=1,
             )
             sent = bool(sent or sent_footer)
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if self._is_task_guide_edit_request_text(text):
@@ -2866,8 +2870,7 @@ class DaemonService:
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             base_name = self._resolve_bot_base_name()
@@ -2887,8 +2890,7 @@ class DaemonService:
                 request_max_attempts=1,
                 parse_mode="HTML",
             )
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         temp_mode_passthrough_buttons = {
@@ -2929,8 +2931,7 @@ class DaemonService:
                     keyboard_rows=keyboard_rows,
                     request_max_attempts=1,
                 )
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             if text == BUTTON_TASK_RESUME:
@@ -2946,8 +2947,7 @@ class DaemonService:
                         keyboard_rows=keyboard_rows,
                         request_max_attempts=1,
                     )
-                    if sent:
-                        self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                    self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                     return True
 
                 candidates = self._search_task_candidates_for_resume(
@@ -2969,8 +2969,7 @@ class DaemonService:
                         keyboard_rows=keyboard_rows,
                         request_max_attempts=1,
                     )
-                    if sent:
-                        self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                    self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                     return True
 
                 candidate_ids, candidate_buttons, candidate_map = self._build_resume_choice_payload(
@@ -3020,8 +3019,7 @@ class DaemonService:
                     request_max_attempts=1,
                 )
                 sent = bool(sent or sent_footer)
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             reply_text = "새 TASK로 시작할지, 기존 TASK를 이어갈지 버튼으로 선택해 주세요."
@@ -3032,8 +3030,7 @@ class DaemonService:
                 keyboard_rows=keyboard_rows,
                 request_max_attempts=1,
             )
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if text == BUTTON_TASK_RESUME:
@@ -3051,8 +3048,7 @@ class DaemonService:
                 keyboard_rows=keyboard_rows,
                 request_max_attempts=1,
             )
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if text == BUTTON_TASK_NEW:
@@ -3070,8 +3066,7 @@ class DaemonService:
                 keyboard_rows=keyboard_rows,
                 request_max_attempts=1,
             )
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if text == BUTTON_MENU_BACK:
@@ -3080,8 +3075,7 @@ class DaemonService:
             reply_text = "메뉴로 돌아왔어요."
             keyboard_rows = self._main_menu_keyboard_rows()
             sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if current_mode == UI_MODE_AWAITING_RESUME_QUERY:
@@ -3094,8 +3088,7 @@ class DaemonService:
                 reply_text = f"`{text}`와 연관된 TASK를 찾지 못했습니다. 다른 키워드를 입력해 주세요."
                 keyboard_rows = self._main_menu_keyboard_rows()
                 sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             candidate_ids, candidate_buttons, candidate_map = self._build_resume_choice_payload(
@@ -3145,8 +3138,7 @@ class DaemonService:
                 request_max_attempts=1,
             )
             sent = bool(sent or sent_footer)
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if current_mode == UI_MODE_AWAITING_RESUME_CHOICE:
@@ -3166,8 +3158,7 @@ class DaemonService:
                 reply_text = "선택 가능한 목록이 갱신되었습니다. `TASK 목록 보기(최근20)`를 다시 눌러 주세요."
                 keyboard_rows = self._main_menu_keyboard_rows()
                 sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
             if not selected_task_id:
                 if inline_only:
@@ -3184,8 +3175,7 @@ class DaemonService:
                         else self._main_menu_keyboard_rows()
                     )
                 sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             row = self._load_task_row(chat_id=chat_id, task_id=selected_task_id, include_instrunction=False)
@@ -3200,8 +3190,7 @@ class DaemonService:
                     else self._main_menu_keyboard_rows()
                 )
                 sent = self._telegram_send_text(chat_id=chat_id, text=reply_text, keyboard_rows=keyboard_rows, request_max_attempts=1)
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             self._set_selected_task_state(chat_id=chat_id, state=state, row=row)
@@ -3254,8 +3243,7 @@ class DaemonService:
                 self._log(
                     f"task_select_focus_mode=no_post_edit chat_id={chat_id} task_id={selected_task_id}"
                 )
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if current_mode == UI_MODE_AWAITING_TASK_GUIDE_EDIT:
@@ -3281,8 +3269,7 @@ class DaemonService:
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
             ok, reply_text = self._rename_bot_display_name(
@@ -3298,8 +3285,7 @@ class DaemonService:
                 request_max_attempts=1,
                 parse_mode="HTML",
             )
-            if sent:
-                self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
         if current_mode == UI_MODE_AWAITING_NEW_TASK_INPUT:
@@ -3351,8 +3337,7 @@ class DaemonService:
                     request_max_attempts=1,
                     parse_mode="HTML",
                 )
-                if sent:
-                    self._finalize_control_message(chat_id=chat_id, message_id=msg_id, reply_text=reply_text)
+                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
         return False
@@ -5560,6 +5545,7 @@ class DaemonService:
             self._release_lock()
             self._log("Daemon stopped")
         return 0
+
 
 
 
