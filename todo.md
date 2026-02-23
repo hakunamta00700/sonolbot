@@ -67,3 +67,10 @@
 - [x] 테스트: `tests/test_service_telegram_runtime_di.py` 추가 (기본 런타임 생성/주입/캐시 동작 검증)
 - [x] 체크: `rg -n "_telegram_runtime_component|_init_telegram_runtime|_get_telegram_runtime" src/sonolbot/core/daemon/service_telegram.py src/sonolbot/core/daemon/service.py tests/test_service_telegram_runtime_di.py`
 - [x] 커밋: `refactor: inject telegram runtime into DaemonService`
+
+## 우선순위 9: Core 런타임 DI 정리
+- [x] 작업: `DaemonServiceCoreRuntime` 추가 및 `daemon/service.py` 생성자에 `core_runtime` 주입 추가
+- [x] 작업: `DaemonServiceCoreMixin`로 `python_bin/env/stop_requested/codex_*` 멤버 위임 정리
+- [x] 테스트: `tests/test_service_core_runtime_di.py` 추가 (기본 런타임 생성/주입/필드 위임 검증)
+- [x] 체크: `rg -n "_core_runtime_component|_init_core_runtime|_get_core_runtime|env = self.env" src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py`
+- [ ] 커밋: `refactor: inject core runtime into DaemonService`
