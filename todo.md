@@ -180,3 +180,9 @@
 - [x] 테스트: `python -m py_compile tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
 - [x] 체크: `rg -n \"test_init_core_runtime_with_invalid_policies_raises|AttributeError\" tests/test_service_core_runtime_di.py`
 - [x] 커밋: `test: guard core runtime invalid policy injection`
+
+## 우선순위 24: DaemonService 생성자 주입 경로 전달 검증
+- [x] 작업: `core_runtime`/`core_env_policy`/`core_python_policy` 전달이 `_init_core_runtime`으로 그대로 전달되는지 확인하는 테스트 추가
+- [x] 테스트: `python -m py_compile tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
+- [x] 체크: `rg -n \"core_runtime\\*\" tests/test_service_core_signature_di.py`
+- [x] 커밋: `test: forward daemon core runtime kwargs to init path`
