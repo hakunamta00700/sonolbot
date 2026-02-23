@@ -21,7 +21,7 @@
 - [x] 작업완료: `_get_task_skill`은 Task mixin으로 이동 (`_run_task_commands_json` 포함), Task 도메인 메서드 30+개 이관
 - [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py`
 - [x] 체크: `rg -n "^    def .*task" src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py` 및 `_lookup_mapped_thread_id` 등 task 도메인 잔존 점검
-- [ ] 커밋: 작업 완료 후 순차 커밋
+- [x] 커밋: `refactor: extract task domain methods into mixin`
 
 ## 3) 우선순위 3: App 서버 기능 분리 (`_app_*`)
 - [ ] 작업: App 서버 IPC/스레드/루프/세션 메서드를 `service_app.py`로 이동
