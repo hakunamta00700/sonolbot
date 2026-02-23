@@ -30,6 +30,8 @@ Rules
 - [x] P4-1: Extract helper to finalize control message only when send succeeds
 - [x] P4-2: Replace `_handle_single_control_message` repeated `if sent: finalize` branches with helper usage
 - [x] P4-3: Run syntax check and commit
+- [x] P4-4: Extract task card batch sender to reduce repeated card header/body/footer send logic
+- [x] P4-5: Run syntax check and commit
 
 ## 5) Phase 5: Risk sweep
 - [ ] R1: Re-scan startup/parse-mode/exception edges touched by refactors

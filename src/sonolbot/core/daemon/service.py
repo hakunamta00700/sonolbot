@@ -1939,6 +1939,54 @@ class DaemonService:
             )
         return "\n".join(lines).strip()
 
+    def _send_task_cards_batch(
+        self,
+        chat_id: int,
+        rows: list[dict[str, Any]],
+        header_text: str = "",
+        footer_text: str = "",
+        *,
+        parse_mode: str | None = "HTML",
+        request_max_attempts: int = 1,
+    ) -> bool:
+        sent = False
+        if header_text:
+            sent = bool(
+                self._telegram_send_text(
+                    chat_id=chat_id,
+                    text=header_text,
+                    keyboard_rows=None,
+                    inline_keyboard_rows=None,
+                    request_max_attempts=request_max_attempts,
+                    parse_mode=parse_mode,
+                )
+            )
+        for idx, row in enumerate(rows, start=1):
+            row_task_id = _service_utils.task_row_id(row)
+            if not row_task_id:
+                continue
+            item_text = self._render_task_item_card_text(idx=idx, row=row)
+            item_inline_keyboard = self._build_single_task_inline_select_keyboard(task_id=row_task_id)
+            sent_item = self._telegram_send_text(
+                chat_id=chat_id,
+                text=item_text,
+                keyboard_rows=None,
+                inline_keyboard_rows=item_inline_keyboard,
+                request_max_attempts=request_max_attempts,
+                parse_mode=parse_mode,
+            )
+            sent = bool(sent or sent_item)
+        if footer_text:
+            sent_footer = self._telegram_send_text(
+                chat_id=chat_id,
+                text=footer_text,
+                keyboard_rows=None,
+                inline_keyboard_rows=None,
+                request_max_attempts=request_max_attempts,
+            )
+            sent = bool(sent or sent_footer)
+        return sent
+
     def _build_task_card_lines(
         self,
         idx: int,
@@ -2738,38 +2786,13 @@ class DaemonService:
                 header_text = self._render_task_list_text(rows=[], limit=20)
                 footer_text = "최근순으로 정렬됩니다. 특정 작업(TASK)을 이어 진행하시려면 하단의 선택 버튼을 눌러 주세요."
                 reply_text = footer_text
-                keyboard_rows = None
-                sent = self._telegram_send_text(
+                sent = self._send_task_cards_batch(
                     chat_id=chat_id,
-                    text=header_text,
-                    keyboard_rows=keyboard_rows,
-                    inline_keyboard_rows=None,
-                    request_max_attempts=1,
+                    rows=rows,
+                    header_text=header_text,
+                    footer_text=footer_text,
                     parse_mode="HTML",
                 )
-                for idx, row in enumerate(rows, start=1):
-                    row_task_id = _service_utils.task_row_id(row)
-                    if not row_task_id:
-                        continue
-                    item_text = self._render_task_item_card_text(idx=idx, row=row)
-                    item_inline_keyboard = self._build_single_task_inline_select_keyboard(task_id=row_task_id)
-                    sent_item = self._telegram_send_text(
-                        chat_id=chat_id,
-                        text=item_text,
-                        keyboard_rows=None,
-                        inline_keyboard_rows=item_inline_keyboard,
-                        request_max_attempts=1,
-                        parse_mode="HTML",
-                    )
-                    sent = bool(sent or sent_item)
-                sent_footer = self._telegram_send_text(
-                    chat_id=chat_id,
-                    text=footer_text,
-                    keyboard_rows=None,
-                    inline_keyboard_rows=None,
-                    request_max_attempts=1,
-                )
-                sent = bool(sent or sent_footer)
             self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
@@ -2988,37 +3011,14 @@ class DaemonService:
                     "<i>연관도 높은 순으로 정렬됩니다. 항목의 선택 버튼을 눌러 주세요.</i>"
                 )
                 reply_text = header_text
-                sent = self._telegram_send_text(
+                footer_text = "원하시는 TASK의 선택 버튼을 누르면 바로 이어서 진행합니다."
+                sent = self._send_task_cards_batch(
                     chat_id=chat_id,
-                    text=header_text,
-                    keyboard_rows=None,
-                    request_max_attempts=1,
+                    rows=candidates,
+                    header_text=header_text,
+                    footer_text=footer_text,
                     parse_mode="HTML",
                 )
-                for idx, row in enumerate(candidates, start=1):
-                    row_task_id = _service_utils.task_row_id(row)
-                    if not row_task_id:
-                        continue
-                    item_text = self._render_task_item_card_text(idx=idx, row=row)
-                    item_inline_keyboard = self._build_single_task_inline_select_keyboard(task_id=row_task_id)
-                    sent_item = self._telegram_send_text(
-                        chat_id=chat_id,
-                        text=item_text,
-                        keyboard_rows=None,
-                        inline_keyboard_rows=item_inline_keyboard,
-                        request_max_attempts=1,
-                        parse_mode="HTML",
-                    )
-                    sent = bool(sent or sent_item)
-                footer_text = "원하시는 TASK의 선택 버튼을 누르면 바로 이어서 진행합니다."
-                sent_footer = self._telegram_send_text(
-                    chat_id=chat_id,
-                    text=footer_text,
-                    keyboard_rows=None,
-                    inline_keyboard_rows=None,
-                    request_max_attempts=1,
-                )
-                sent = bool(sent or sent_footer)
                 self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
                 return True
 
@@ -3107,37 +3107,14 @@ class DaemonService:
                 "<i>연관도 높은 순으로 정렬됩니다. 항목의 선택 버튼을 눌러 주세요.</i>"
             )
             reply_text = header_text
-            sent = self._telegram_send_text(
+            footer_text = "원하시는 TASK의 선택 버튼을 누르면 바로 이어서 진행합니다."
+            sent = self._send_task_cards_batch(
                 chat_id=chat_id,
-                text=header_text,
-                keyboard_rows=None,
-                request_max_attempts=1,
+                rows=candidates,
+                header_text=header_text,
+                footer_text=footer_text,
                 parse_mode="HTML",
             )
-            for idx, row in enumerate(candidates, start=1):
-                row_task_id = _service_utils.task_row_id(row)
-                if not row_task_id:
-                    continue
-                item_text = self._render_task_item_card_text(idx=idx, row=row)
-                item_inline_keyboard = self._build_single_task_inline_select_keyboard(task_id=row_task_id)
-                sent_item = self._telegram_send_text(
-                    chat_id=chat_id,
-                    text=item_text,
-                    keyboard_rows=None,
-                    inline_keyboard_rows=item_inline_keyboard,
-                    request_max_attempts=1,
-                    parse_mode="HTML",
-                )
-                sent = bool(sent or sent_item)
-            footer_text = "원하시는 TASK의 선택 버튼을 누르면 바로 이어서 진행합니다."
-            sent_footer = self._telegram_send_text(
-                chat_id=chat_id,
-                text=footer_text,
-                keyboard_rows=None,
-                inline_keyboard_rows=None,
-                request_max_attempts=1,
-            )
-            sent = bool(sent or sent_footer)
             self._finalize_control_message_if_sent(chat_id=chat_id, message_id=message_id, reply_text=reply_text, sent=sent)
             return True
 
