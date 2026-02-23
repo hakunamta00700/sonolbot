@@ -165,6 +165,29 @@ else:
                 service._init_core_runtime(python_policy=_CustomPythonPolicy())
                 self.assertEqual(service.python_bin, str(priority_path))
 
+        def test_init_core_runtime_uses_injected_runtime_over_policies(self) -> None:
+            with tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                preferred = root / "preferred"
+                preferred.parent.mkdir(parents=True, exist_ok=True)
+                preferred.write_text("", encoding="utf-8")
+                fallback = root / "fallback"
+                fallback.parent.mkdir(parents=True, exist_ok=True)
+                fallback.write_text("", encoding="utf-8")
+
+                class _PreferredPythonPolicy(DaemonServiceCorePythonPolicy):
+                    def build_venv_python_paths(self, path_root: Path) -> list[Path]:
+                        return [preferred]
+
+                class _FallbackPythonPolicy(DaemonServiceCorePythonPolicy):
+                    def build_venv_python_paths(self, path_root: Path) -> list[Path]:
+                        return [fallback]
+
+                service = _FakeServiceForCoreRuntime(root)
+                runtime = DaemonServiceCoreRuntime(service, python_policy=_PreferredPythonPolicy())
+                service._init_core_runtime(runtime, python_policy=_FallbackPythonPolicy())
+                self.assertEqual(service.python_bin, str(preferred))
+
         def test_set_env_rebuilds_gui_session_marker(self) -> None:
             class _NoDisplayPolicy(DaemonServiceCoreEnvPolicy):
                 def has_gui_session(self, env: dict[str, str]) -> bool:
