@@ -82,6 +82,70 @@ else:
             }
 
     class TestDaemonServiceSignatureDI(unittest.TestCase):
+        def test_daemon_service_ctor_rejects_invalid_runtime_injection(self) -> None:
+            original_init_core_runtime = DaemonService._init_core_runtime
+            original_init_telegram_runtime = DaemonService._init_telegram_runtime
+            original_init_task_runtime = DaemonService._init_task_runtime
+            original_init_app_runtime = DaemonService._init_app_runtime
+            original_init_lease_runtime = DaemonService._init_lease_runtime
+            original_harden = DaemonService._harden_sensitive_permissions
+            original_init_rewriter_runtime = DaemonService._init_rewriter_runtime
+            original_cleanup_activity_logs = getattr(DaemonService, "_cleanup_activity_logs", None)
+            original_rotate_activity_log = getattr(DaemonService, "_rotate_activity_log_if_needed", None)
+            original_log = getattr(DaemonService, "_log", None)
+
+            def noop(*_args: object, **_kwargs: object) -> None:
+                return None
+
+            DaemonService._init_core_runtime = noop
+            DaemonService._init_telegram_runtime = noop
+            DaemonService._init_task_runtime = noop
+            DaemonService._init_app_runtime = noop
+            DaemonService._init_lease_runtime = noop
+            DaemonService._harden_sensitive_permissions = noop
+            DaemonService._init_rewriter_runtime = noop
+            DaemonService._cleanup_activity_logs = noop
+            DaemonService._rotate_activity_log_if_needed = noop
+            DaemonService._log = noop
+
+            try:
+                service = _FakeServiceConfig(Path("/tmp"))
+                invalid_runtimes = {
+                    "core_runtime": object(),
+                    "task_runtime": object(),
+                    "app_runtime": object(),
+                    "lease_runtime": object(),
+                    "telegram_runtime": object(),
+                    "rewriter_runtime": object(),
+                }
+                for name, runtime in invalid_runtimes.items():
+                    with self.subTest(runtime_name=name):
+                        with self.assertRaises(TypeError):
+                            DaemonService(service_config=service, **{name: runtime})
+            finally:
+                DaemonService._init_core_runtime = original_init_core_runtime
+                DaemonService._init_telegram_runtime = original_init_telegram_runtime
+                DaemonService._init_task_runtime = original_init_task_runtime
+                DaemonService._init_app_runtime = original_init_app_runtime
+                DaemonService._init_lease_runtime = original_init_lease_runtime
+                DaemonService._harden_sensitive_permissions = original_harden
+                DaemonService._init_rewriter_runtime = original_init_rewriter_runtime
+                if original_cleanup_activity_logs is None:
+                    if "_cleanup_activity_logs" in DaemonService.__dict__:
+                        del DaemonService._cleanup_activity_logs
+                else:
+                    DaemonService._cleanup_activity_logs = original_cleanup_activity_logs
+                if original_rotate_activity_log is None:
+                    if "_rotate_activity_log_if_needed" in DaemonService.__dict__:
+                        del DaemonService._rotate_activity_log_if_needed
+                else:
+                    DaemonService._rotate_activity_log_if_needed = original_rotate_activity_log
+                if original_log is None:
+                    if "_log" in DaemonService.__dict__:
+                        del DaemonService._log
+                else:
+                    DaemonService._log = original_log
+
         def test_daemon_service_core_runtime_injection_is_forwarded(self) -> None:
             captured: dict[str, object] = {}
 
@@ -101,6 +165,7 @@ else:
                 with tempfile.TemporaryDirectory() as td:
                     base = Path(td)
                     config = _FakeServiceConfig(base)
+                    from sonolbot.core.daemon.service_core import DaemonServiceCoreRuntime
 
                     def fake_init_core_runtime(
                         self,
@@ -128,7 +193,7 @@ else:
                     DaemonService._rotate_activity_log_if_needed = noop
                     DaemonService._log = noop
 
-                    runtime = object()
+                    runtime = DaemonServiceCoreRuntime(config)
                     env_policy = object()
                     python_policy = object()
                     service = DaemonService(

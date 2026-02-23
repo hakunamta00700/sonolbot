@@ -231,3 +231,10 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
 - [x] 체크: `rg -n \"invalid_result|test_daemon_service_config_loader_invalid_result_raises|TypeError\\(\"service_config_loader\"|service_config_loader\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
 - [x] 커밋: `test: validate injected service config loader result`
+
+## 우선순위 31: 주입 런타임 객체 타입 검증
+- [x] 작업: `DaemonService.__init__`에서 주입 런타임(`core_runtime`/`task_runtime`/`app_runtime`/`lease_runtime`/`telegram_runtime`/`rewriter_runtime`) 타입 유효성 검사 추가
+- [x] 테스트: `test_daemon_service_ctor_rejects_invalid_runtime_injection` 추가
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
+- [x] 체크: `rg -n \"invalid_runtime_injection|test_daemon_service_ctor_rejects_invalid_runtime_injection|rewriter_runtime must be DaemonServiceRewriterRuntime|core_runtime must be DaemonServiceCoreRuntime\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
+- [x] 커밋: `test: validate injected runtime objects`

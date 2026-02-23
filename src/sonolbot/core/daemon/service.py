@@ -14,7 +14,7 @@ from sonolbot.core.daemon.service_config import DaemonServiceConfig
 from sonolbot.core.daemon.service_task import DaemonServiceTaskMixin, DaemonServiceTaskRuntime
 from sonolbot.core.daemon.service_app import DaemonServiceAppMixin, DaemonServiceAppRuntime
 from sonolbot.core.daemon.service_lease import DaemonServiceLeaseMixin, DaemonServiceLeaseRuntime
-from sonolbot.core.daemon.service_rewriter import DaemonServiceRewriterMixin
+from sonolbot.core.daemon.service_rewriter import DaemonServiceRewriterMixin, DaemonServiceRewriterRuntime
 from sonolbot.core.daemon.service_telegram import DaemonServiceTelegramMixin, DaemonServiceTelegramRuntime
 
 class DaemonService(
@@ -40,6 +40,18 @@ class DaemonService(
         telegram_runtime: DaemonServiceTelegramRuntime | None = None,
         rewriter_runtime: DaemonServiceRewriterRuntime | None = None,
     ) -> None:
+        if core_runtime is not None and not isinstance(core_runtime, DaemonServiceCoreRuntime):
+            raise TypeError("core_runtime must be DaemonServiceCoreRuntime")
+        if task_runtime is not None and not isinstance(task_runtime, DaemonServiceTaskRuntime):
+            raise TypeError("task_runtime must be DaemonServiceTaskRuntime")
+        if app_runtime is not None and not isinstance(app_runtime, DaemonServiceAppRuntime):
+            raise TypeError("app_runtime must be DaemonServiceAppRuntime")
+        if lease_runtime is not None and not isinstance(lease_runtime, DaemonServiceLeaseRuntime):
+            raise TypeError("lease_runtime must be DaemonServiceLeaseRuntime")
+        if telegram_runtime is not None and not isinstance(telegram_runtime, DaemonServiceTelegramRuntime):
+            raise TypeError("telegram_runtime must be DaemonServiceTelegramRuntime")
+        if rewriter_runtime is not None and not isinstance(rewriter_runtime, DaemonServiceRewriterRuntime):
+            raise TypeError("rewriter_runtime must be DaemonServiceRewriterRuntime")
         if service_config is None:
             if service_config_loader is None:
                 self.config, init_warnings = DaemonServiceConfig.from_env()
