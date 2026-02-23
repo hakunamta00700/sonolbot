@@ -29,4 +29,4 @@ Rules
 ## 4) Phase 4: Risk sweep
 - [x] R1: Re-check env/parse-mode startup edges (including missing/invalid prompt files)
 - [x] R2: Re-check exception paths around persistence/logging startup
-- [ ] R3: Final checklist + commit
+- [x] R3: Final checklist + commit
