@@ -4,6 +4,7 @@ import sys
 import types
 import tempfile
 import unittest
+import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -83,13 +84,21 @@ else:
         def test_init_core_runtime_prefers_workspace_venv_python(self) -> None:
             with tempfile.TemporaryDirectory() as td:
                 root = Path(td)
-                fake_bin = root / ".venv" / "bin"
-                fake_bin.mkdir(parents=True, exist_ok=True)
-                (fake_bin / "python").write_text("", encoding="utf-8")
+                if os.name == "nt":
+                    fake_bin = root / ".venv" / "Scripts"
+                    fake_bin.mkdir(parents=True, exist_ok=True)
+                    (fake_bin / "python.exe").write_text("", encoding="utf-8")
+                    expected_python = str(fake_bin / "python.exe")
+                else:
+                    fake_bin = root / ".venv" / "bin"
+                    fake_bin.mkdir(parents=True, exist_ok=True)
+                    (fake_bin / "python").write_text("", encoding="utf-8")
+                    expected_python = str(fake_bin / "python")
+
                 service = _FakeServiceForCoreRuntime(root)
 
                 service._init_core_runtime()
-                self.assertEqual(service.python_bin, str(fake_bin / "python"))
+                self.assertEqual(service.python_bin, expected_python)
 
         def test_injected_runtime_instance_is_shared(self) -> None:
             service = _FakeServiceForCoreRuntime(Path.cwd())

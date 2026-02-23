@@ -25,9 +25,13 @@ class DaemonServiceCoreRuntime:
     def _detect_python_bin(self) -> str:
         root = getattr(self.service, "root", None)
         if isinstance(root, Path):
-            venv_py = root / ".venv" / "bin" / "python"
-            if venv_py.exists():
-                return str(venv_py)
+            candidate_paths = [root / ".venv" / "bin" / "python"]
+            if os.name == "nt":
+                candidate_paths.insert(0, root / ".venv" / "Scripts" / "python.exe")
+
+            for venv_py in candidate_paths:
+                if venv_py.exists():
+                    return str(venv_py)
         return sys.executable
 
     @staticmethod
@@ -48,6 +52,12 @@ class DaemonServiceCoreMixin:
         if isinstance(runtime, DaemonServiceCoreRuntime):
             return runtime
         return None
+
+    def _has_gui_session(self) -> bool:
+        runtime = self._get_core_runtime()
+        if runtime is None:
+            return False
+        return runtime._has_gui_session()
 
     @property
     def python_bin(self) -> str:

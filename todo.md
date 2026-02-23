@@ -80,3 +80,10 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
 - [x] 체크: `rg -n "DaemonServiceCoreRuntime|_import_service_core|test_gui_session_detection_defaults_to_no_display_on_posix|import sys" tests/test_service_core_runtime_di.py`
 - [x] 커밋: `test: fix service core runtime DI test indentation`
+
+## 우선순위 11: Core 런타임 python 탐지 개선
+- [x] 작업: `DaemonServiceCoreRuntime._detect_python_bin`에 Windows venv(`.venv\\Scripts\\python.exe`) 우선 탐지 추가
+- [x] 테스트: `tests/test_service_core_runtime_di.py::TestDaemonServiceCoreRuntimeDI::test_init_core_runtime_prefers_workspace_venv_python`가 OS별 경로를 검증하도록 갱신
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
+- [x] 체크: `rg -n "Scripts|python.exe|_detect_python_bin|os.name == \"nt\"|expected_python" src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py`
+- [x] 커밋: `refactor(core): detect venv python path per platform`
