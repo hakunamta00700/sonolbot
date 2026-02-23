@@ -3,7 +3,173 @@
 from pathlib import Path
 from sonolbot.core.daemon.runtime_shared import *
 
+class DaemonServiceLeaseRuntime:
+    def __init__(self, service: Any) -> None:
+        self.service = service
+        self.owned_chat_leases: set[int] = set()
+        self.chat_lease_busy_logged_at: dict[int, float] = {}
+        self.completed_message_ids_recent: dict[int, float] = {}
+        self._completed_requeue_log_ts: dict[int, float] = {}
+
+    @property
+    def _owner(self) -> Any:
+        return self.service
+
+
 class DaemonServiceLeaseMixin:
+
+    def _get_lease_runtime(self) -> DaemonServiceLeaseRuntime | None:
+        runtime = getattr(self, "_lease_runtime_component", None)
+        if isinstance(runtime, DaemonServiceLeaseRuntime):
+            return runtime
+        return None
+
+    def _init_lease_runtime(self, runtime: DaemonServiceLeaseRuntime | None = None) -> None:
+        if runtime is None:
+            runtime = DaemonServiceLeaseRuntime(self)
+        self._lease_runtime_component = runtime
+
+    @property
+    def _owned_chat_leases(self) -> set[int]:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return set()
+        return runtime.owned_chat_leases
+
+    @_owned_chat_leases.setter
+    def _owned_chat_leases(self, value: set[int]) -> None:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return
+        runtime.owned_chat_leases = set(value)
+
+    @property
+    def _chat_lease_busy_logged_at(self) -> dict[int, float]:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return {}
+        return runtime.chat_lease_busy_logged_at
+
+    @_chat_lease_busy_logged_at.setter
+    def _chat_lease_busy_logged_at(self, value: dict[int, float]) -> None:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return
+        runtime.chat_lease_busy_logged_at = value
+
+    @property
+    def completed_message_ids_recent(self) -> dict[int, float]:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return {}
+        return runtime.completed_message_ids_recent
+
+    @completed_message_ids_recent.setter
+    def completed_message_ids_recent(self, value: dict[int, float]) -> None:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return
+        runtime.completed_message_ids_recent = value
+
+    @property
+    def _completed_requeue_log_ts(self) -> dict[int, float]:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return {}
+        return runtime._completed_requeue_log_ts
+
+    @_completed_requeue_log_ts.setter
+    def _completed_requeue_log_ts(self, value: dict[int, float]) -> None:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return
+        runtime._completed_requeue_log_ts = value
+
+    def _remember_completed_message_ids(self, message_ids: set[int] | list[int]) -> None:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return
+        now_epoch = time.time()
+        ttl = float(self.completed_message_ttl_sec)
+        if ttl <= 0:
+            return
+        for raw_msg_id in message_ids:
+            try:
+                msg_id = int(raw_msg_id)
+            except Exception:
+                continue
+            if msg_id <= 0:
+                continue
+            runtime.completed_message_ids_recent[msg_id] = now_epoch
+
+    def _is_message_recently_completed(self, message_id: int, now_epoch: float | None = None) -> bool:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return False
+        try:
+            msg_id = int(message_id)
+        except Exception:
+            return False
+        if msg_id <= 0:
+            return False
+        ttl = float(self.completed_message_ttl_sec)
+        if ttl <= 0:
+            return False
+        now = float(now_epoch) if now_epoch is not None else time.time()
+        last_epoch = float(runtime.completed_message_ids_recent.get(msg_id) or 0.0)
+        if last_epoch <= 0.0:
+            return False
+        return (now - last_epoch) <= ttl
+
+    def _recently_completed_message_age_sec(self, message_id: int, now_epoch: float | None = None) -> float:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return -1.0
+        try:
+            msg_id = int(message_id)
+        except Exception:
+            return -1.0
+        if msg_id <= 0:
+            return -1.0
+        now = float(now_epoch) if now_epoch is not None else time.time()
+        last_epoch = float(runtime.completed_message_ids_recent.get(msg_id) or 0.0)
+        if last_epoch <= 0.0:
+            return -1.0
+        return max(0.0, now - last_epoch)
+
+    def _log_recently_completed_drop(self, chat_id: int, message_id: int, age_sec: float) -> None:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return
+        now = time.time()
+        try:
+            msg_id = int(message_id)
+        except Exception:
+            msg_id = 0
+        last_ts = float(runtime._completed_requeue_log_ts.get(msg_id) or 0.0)
+        if (now - last_ts) < 1.0:
+            return
+        runtime._completed_requeue_log_ts[msg_id] = now
+        self._log(
+            f"turn_start_completed_cache_filter chat_id={chat_id} message_id={msg_id} age={age_sec:.1f}s"
+        )
+
+    def _prune_completed_message_cache(self) -> None:
+        runtime = self._get_lease_runtime()
+        if runtime is None:
+            return
+        ttl = float(self.completed_message_ttl_sec)
+        if ttl <= 0:
+            runtime.completed_message_ids_recent.clear()
+            runtime._completed_requeue_log_ts.clear()
+            return
+        now = time.time()
+        expire_before = now - ttl
+        for msg_id in list(runtime.completed_message_ids_recent.keys()):
+            if float(runtime.completed_message_ids_recent.get(msg_id) or 0.0) < expire_before:
+                runtime.completed_message_ids_recent.pop(msg_id, None)
+                runtime._completed_requeue_log_ts.pop(msg_id, None)
+
 
     def _chat_lease_path(self, chat_id: int) -> Path:
         return self.chat_locks_dir / f"chat_{int(chat_id)}.json"
@@ -201,3 +367,5 @@ class DaemonServiceLeaseMixin:
             if chat_id > 0:
                 self._chat_lease_release(chat_id, reason="stale_cleanup")
         return False
+
+

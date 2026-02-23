@@ -6,7 +6,7 @@ from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.service_config import DaemonServiceConfig
 from sonolbot.core.daemon.service_task import DaemonServiceTaskMixin
 from sonolbot.core.daemon.service_app import DaemonServiceAppMixin, DaemonServiceAppRuntime
-from sonolbot.core.daemon.service_lease import DaemonServiceLeaseMixin
+from sonolbot.core.daemon.service_lease import DaemonServiceLeaseMixin, DaemonServiceLeaseRuntime
 from sonolbot.core.daemon.service_rewriter import DaemonServiceRewriterMixin
 from sonolbot.core.daemon.service_telegram import DaemonServiceTelegramMixin
 
@@ -21,6 +21,7 @@ class DaemonService(
         self,
         *,
         app_runtime: DaemonServiceAppRuntime | None = None,
+        lease_runtime: DaemonServiceLeaseRuntime | None = None,
         rewriter_runtime: DaemonServiceRewriterRuntime | None = None,
     ) -> None:
         self.config, init_warnings = DaemonServiceConfig.from_env()
@@ -32,11 +33,6 @@ class DaemonService(
         self._telegram_skill = None
         self._task_skill = None
         self.stop_requested = False
-        self._owned_chat_leases: set[int] = set()
-        self._chat_lease_busy_logged_at: dict[int, float] = {}
-        self.completed_message_ids_recent: dict[int, float] = {}
-        self._completed_requeue_log_ts: dict[int, float] = {}
-        self._rewriter_runtime_component = None
 
         self.env = os.environ.copy()
         self.env.setdefault("LANG", "C.UTF-8")
@@ -56,6 +52,7 @@ class DaemonService(
         self.chat_locks_dir.mkdir(parents=True, exist_ok=True)
         self.agent_rewriter_workspace.mkdir(parents=True, exist_ok=True)
         self._init_app_runtime(app_runtime)
+        self._init_lease_runtime(lease_runtime)
         self._harden_sensitive_permissions()
         self._init_rewriter_runtime(rewriter_runtime)
         self._cleanup_activity_logs()

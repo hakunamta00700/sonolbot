@@ -46,3 +46,10 @@
 - [x] 테스트: `python -m unittest tests/test_service_app_runtime_di.py` (실제 4개 테스트 통과)
 - [x] 체크: `rg -n "_ensure_fake_dotenv|_import_service_app|daemon service app runtime dependency" tests/test_service_app_runtime_di.py`
 - [x] 커밋: `test: make app runtime DI tests runnable without optional env deps`
+
+## 우선순위 6: Lease 런타임 DI 정리
+- [x] 작업: `DaemonServiceLeaseRuntime` 생성 및 `daemon/service.py`에 `lease_runtime` 주입 경로 추가
+- [x] 작업: `DaemonServiceLeaseMixin` 멤버(`_owned_chat_leases`, `_chat_lease_busy_logged_at`, `completed_message_ids_recent`, `_completed_requeue_log_ts`)를 런타임 속성으로 위임
+- [x] 테스트: `tests/test_service_lease_runtime_di.py` 추가 및 완료 메시지 캐시/런타임 주입 검증
+- [x] 체크: `rg -n "_init_lease_runtime|_get_lease_runtime|completed_message_ids_recent|_completed_requeue_log_ts" src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_lease.py tests/test_service_lease_runtime_di.py`
+- [x] 커밋: `refactor: inject lease runtime state into DaemonService`
