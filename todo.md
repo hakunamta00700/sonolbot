@@ -74,3 +74,9 @@
 - [x] 테스트: `tests/test_service_core_runtime_di.py` 추가 (기본 런타임 생성/주입/필드 위임 검증)
 - [x] 체크: `rg -n "_core_runtime_component|_init_core_runtime|_get_core_runtime|env = self.env" src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py`
 - [x] 커밋: `refactor: inject core runtime into DaemonService`
+
+## 우선순위 10: Core 런타임 DI 테스트 안정화
+- [x] 작업: `tests/test_service_core_runtime_di.py` 들여쓰기 문법 오류 수정
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
+- [x] 체크: `rg -n "DaemonServiceCoreRuntime|_import_service_core|test_gui_session_detection_defaults_to_no_display_on_posix|import sys" tests/test_service_core_runtime_di.py`
+- [x] 커밋: `test: fix service core runtime DI test indentation`

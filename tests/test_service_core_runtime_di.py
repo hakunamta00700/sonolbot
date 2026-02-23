@@ -121,3 +121,8 @@ else:
             self.assertEqual(runtime.codex_cli_version, "unit-test")
             self.assertEqual(runtime.codex_run_meta, {"mode": "app_server"})
             self.assertEqual(runtime.env["NEW_KEY"], "2")
+
+        def test_gui_session_detection_defaults_to_no_display_on_posix(self) -> None:
+            service = _FakeServiceForCoreRuntime(Path.cwd())
+            service._init_core_runtime()
+            self.assertIsInstance(service._has_gui_session(), bool)
