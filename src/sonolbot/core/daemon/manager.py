@@ -59,14 +59,7 @@ class MultiBotManager:
         return _manager_utils.env_float(name, default, minimum=minimum)
 
     def _log(self, message: str) -> None:
-        line = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [manager] {message}\n"
-        log_path = self._daily_log_path()
-        try:
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            with log_path.open("a", encoding="utf-8") as f:
-                f.write(line)
-        except OSError:
-            pass
+        _log_with_loguru(message, log_path=self._daily_log_path(), component="manager")
 
     def _cleanup_logs(self) -> None:
         cutoff = datetime.now().date() - timedelta(days=self.log_retention_days - 1)

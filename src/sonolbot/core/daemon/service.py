@@ -86,6 +86,9 @@ class DaemonService(
         self._cleanup_activity_logs()
         self._rotate_activity_log_if_needed(force=False)
 
+    def _log(self, message: str) -> None:
+        _log_with_loguru(message, log_path=self._daily_log_path(), component="service")
+
     def _daily_log_path(self) -> Path:
         return self.logs_dir / f"daemon-{datetime.now().strftime('%Y-%m-%d')}.log"
 
