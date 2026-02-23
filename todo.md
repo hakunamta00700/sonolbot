@@ -73,4 +73,4 @@
 - [x] 작업: `DaemonServiceCoreMixin`로 `python_bin/env/stop_requested/codex_*` 멤버 위임 정리
 - [x] 테스트: `tests/test_service_core_runtime_di.py` 추가 (기본 런타임 생성/주입/필드 위임 검증)
 - [x] 체크: `rg -n "_core_runtime_component|_init_core_runtime|_get_core_runtime|env = self.env" src/sonolbot/core/daemon/service_core.py src/sonolbot/core/daemon/service.py tests/test_service_core_runtime_di.py`
-- [ ] 커밋: `refactor: inject core runtime into DaemonService`
+- [x] 커밋: `refactor: inject core runtime into DaemonService`
