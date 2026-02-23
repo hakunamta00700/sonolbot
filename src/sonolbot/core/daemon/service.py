@@ -1852,13 +1852,13 @@ class DaemonService:
                 "현재 선택된 TASK가 없어 지침 변경 요청을 처리할 수 없습니다.\n"
                 "먼저 `TASK 목록 보기(최근20)` 또는 `기존 TASK 이어하기`로 TASK를 선택해 주세요."
             )
-            sent = self._telegram_send_text(
+            self._send_control_reply(
                 chat_id=chat_id,
-                text=reply_text,
+                message_id=msg_id,
+                reply_text=reply_text,
                 keyboard_rows=self._main_menu_keyboard_rows(),
                 request_max_attempts=1,
             )
-            self._finalize_control_message_if_sent(chat_id=chat_id, message_id=msg_id, reply_text=reply_text, sent=sent)
             return True
 
         target_path = self._task_agents_path(chat_id=chat_id, thread_id=target_thread_id)
@@ -1869,13 +1869,13 @@ class DaemonService:
                     "TASK 지침 파일을 생성하는 중 문제가 발생했어요.\n"
                     "잠시 후 다시 시도해 주세요."
                 )
-                sent = self._telegram_send_text(
+                self._send_control_reply(
                     chat_id=chat_id,
-                    text=reply_text,
+                    message_id=msg_id,
+                    reply_text=reply_text,
                     keyboard_rows=self._main_menu_keyboard_rows(),
                     request_max_attempts=1,
                 )
-                self._finalize_control_message_if_sent(chat_id=chat_id, message_id=msg_id, reply_text=reply_text, sent=sent)
                 return True
 
         rewritten_request = self._build_task_agents_edit_request_text(

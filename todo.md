@@ -11,7 +11,7 @@ Rules
 - [x] R1-1: Add `_send_control_reply(...)` helper in `DaemonService`
   - Centralize `telegram_send_text` + `_finalize_control_message_if_sent` + return value
   - Keep defaults compatible with current UI flow (`request_max_attempts=1`, optional `parse_mode`, optional keyboards)
-- [ ] R1-2: Use `_send_control_reply(...)` in `_forward_task_guide_edit_request`
+- [x] R1-2: Use `_send_control_reply(...)` in `_forward_task_guide_edit_request`
   - Replace direct send/finalize pairs with helper
 - [ ] R1-3: Use `_send_control_reply(...)` in `_handle_single_control_message`
   - Replace repeated `sent = ...` + finalize call
