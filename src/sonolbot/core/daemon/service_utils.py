@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 import re
+import time
 from typing import Any
 
 from sonolbot.core.daemon.constants import DEFAULT_TASK_GUIDE_TELEGRAM_CHUNK_CHARS
@@ -78,6 +79,23 @@ def write_json_dict(path: Path, payload: dict[str, Any]) -> bool:
         return False
 
 
+def write_json_dict_atomic(path: Path, payload: dict[str, Any]) -> bool:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}")
+    try:
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+        return True
+    except OSError:
+        return False
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
 def load_thread_state_map(path: Path) -> dict[int, str]:
     raw = read_json_dict(path)
     sessions = raw.get("sessions", {})
@@ -107,6 +125,21 @@ def append_timestamped_log_line(path: Path, prefix: str, line: str) -> bool:
         return True
     except OSError:
         return False
+
+
+def normalize_task_thread_map(mapping: dict[Any, Any], *, task_id_max_len: int = 200, thread_id_max_len: int = 200) -> dict[str, str]:
+    if not isinstance(mapping, dict):
+        return {}
+    out: dict[str, str] = {}
+    for raw_task_id, raw_thread_id in mapping.items():
+        task_id = normalize_task_id_token(raw_task_id)
+        thread_id = compact_prompt_text(raw_thread_id, max_len=thread_id_max_len)
+        if not task_id or not thread_id:
+            continue
+        if len(task_id) > task_id_max_len:
+            continue
+        out[task_id] = thread_id
+    return out
 
 
 def normalize_telegram_parse_mode(parse_mode: object) -> str:

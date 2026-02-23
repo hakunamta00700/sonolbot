@@ -22,9 +22,9 @@ Rules
 - [x] P2-3: Keep behavior identical; run syntax check and commit
 
 ## 3) Phase 3: Interaction boundary cleanup (Priority 3)
-- [ ] P3-1: Review large command handlers and extract any new helper candidates
+- [x] P3-1: Review large command handlers and extract any new helper candidates
 - [ ] P3-2: Move repeated task-card rendering blocks into dedicated helper(s)
-- [ ] P3-3: Run syntax check and commit
+- [x] P3-3: Run syntax check and commit
 
 ## 4) Phase 4: Risk sweep
 - [x] R1: Re-check env/parse-mode startup edges (including missing/invalid prompt files)

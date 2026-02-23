@@ -3414,43 +3414,13 @@ class DaemonService:
 
     def _load_legacy_task_thread_map(self, chat_id: int) -> dict[str, str]:
         path = self._legacy_task_thread_map_path(chat_id)
-        if not path.exists():
-            return {}
-        try:
-            loaded = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
-        if not isinstance(loaded, dict):
-            return {}
-        out: dict[str, str] = {}
-        for raw_task_id, raw_thread_id in loaded.items():
-            task_id = _service_utils.normalize_task_id_token(raw_task_id)
-            thread_id = _service_utils.compact_prompt_text(raw_thread_id, max_len=200)
-            if not task_id or not thread_id:
-                continue
-            out[task_id] = thread_id
-        return out
+        return _service_utils.normalize_task_thread_map(_service_utils.read_json_dict(path))
 
     def _save_legacy_task_thread_map(self, chat_id: int, mapping: dict[str, str]) -> None:
         path = self._legacy_task_thread_map_path(chat_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        normalized: dict[str, str] = {}
-        for raw_task_id, raw_thread_id in (mapping or {}).items():
-            task_id = _service_utils.normalize_task_id_token(raw_task_id)
-            thread_id = _service_utils.compact_prompt_text(raw_thread_id, max_len=200)
-            if not task_id or not thread_id:
-                continue
-            normalized[task_id] = thread_id
-        tmp = path.with_name(f".{path.name}.tmp.{os.getpid()}.{time.time_ns()}")
-        try:
-            tmp.write_text(json.dumps(normalized, ensure_ascii=False, indent=2), encoding="utf-8")
-            os.replace(tmp, path)
-        finally:
-            if tmp.exists():
-                try:
-                    tmp.unlink()
-                except OSError:
-                    pass
+        normalized = _service_utils.normalize_task_thread_map(mapping)
+        if not _service_utils.write_json_dict_atomic(path, normalized):
+            self._log(f"WARN: failed to save legacy task thread map: {path}")
 
     def _lookup_mapped_thread_id(self, chat_id: int, task_id: str) -> str:
         normalized_task_id = _service_utils.normalize_task_id_token(task_id)
