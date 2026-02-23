@@ -52,7 +52,7 @@
 - [x] 작업완료: `_init_rewriter_runtime(rewriter_runtime)` 호출로 기본/주입 런타임 처리
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py`
 - [x] 체크: `DaemonService` 시그니처 및 런타임 주입 초기화 호출 확인
-- [ ] 커밋: `refactor: inject rewriter runtime into DaemonService`
+- [x] 커밋: `refactor: inject rewriter runtime into DaemonService`
 
 ## 우선순위 3: App/락/로그 헬퍼 정리(후속)
 - [ ] 작업: App/lock/로그 헬퍼 소유권 분리 대상 식별
