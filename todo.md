@@ -31,11 +31,11 @@
  - [x] 커밋: `refactor: extract app server methods into mixin`
 
 ## 4) 우선순위 4: 채팅 릴리스/락 분리 (`_chat_lease_*`)
-- [ ] 작업: chat lease 전용 로직을 별도 mixin으로 이동
-- [ ] 작업완료: `_chat_lease_*`와 릴리스/터치/상태 계산 책임 분리
-- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
-- [ ] 체크: 상태 파일 경로/락 해제 동작 영향 없음 확인
-- [ ] 커밋: 작업 완료 후 순차 커밋
+- [x] 작업: chat lease 전용 로직을 별도 mixin으로 이동
+- [x] 작업완료: `_chat_lease_*`와 릴리스/터치/상태 계산 책임 분리
+- [x] 테스트: `python -m compileall src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service_app.py src/sonolbot/core/daemon/service_lease.py`
+- [x] 체크: `_chat_lease_*` 정의/호출 관계 및 상태 경로 사용 일치 확인
+- [x] 커밋: 작업 완료 후 순차 커밋
 
 ## 5) 우선순위 5: Rewriter 기능 분리 (`_rewriter_*`)
 - [ ] 작업: Agent rewriter 관련 메서드 분리

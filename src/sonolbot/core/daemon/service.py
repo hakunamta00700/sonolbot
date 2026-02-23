@@ -6,9 +6,10 @@ from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.service_config import DaemonServiceConfig
 from sonolbot.core.daemon.service_task import DaemonServiceTaskMixin
 from sonolbot.core.daemon.service_app import DaemonServiceAppMixin
+from sonolbot.core.daemon.service_lease import DaemonServiceLeaseMixin
 from sonolbot.core.daemon.service_telegram import DaemonServiceTelegramMixin
 
-class DaemonService(DaemonServiceTaskMixin, DaemonServiceAppMixin, DaemonServiceTelegramMixin):
+class DaemonService(DaemonServiceTaskMixin, DaemonServiceAppMixin, DaemonServiceLeaseMixin, DaemonServiceTelegramMixin):
     def __init__(self) -> None:
         self.config, init_warnings = DaemonServiceConfig.from_env()
         for name, value in self.config.as_dict().items():
