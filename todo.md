@@ -173,3 +173,10 @@
 - [x] 테스트: `python -m py_compile tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
 - [x] 체크: `rg -n \"core_runtime_includes_core_runtime_kwargs|core_env_policy|core_python_policy\" tests/test_service_core_signature_di.py`
 - [x] 커밋: `test: lock in daemon service core runtime ctor API`
+
+## 우선순위 23: 정책 미준수 객체에 대한 실패 동작 테스트
+- [x] 작업: `DaemonServiceCoreRuntime` 생성자에 미준수 `env_policy`/`python_policy`를 전달할 때 `AttributeError` 발생 검증
+- [x] 테스트: `test_init_core_runtime_with_invalid_policies_raises` 추가
+- [x] 테스트: `python -m py_compile tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
+- [x] 체크: `rg -n \"test_init_core_runtime_with_invalid_policies_raises|AttributeError\" tests/test_service_core_runtime_di.py`
+- [x] 커밋: `test: guard core runtime invalid policy injection`

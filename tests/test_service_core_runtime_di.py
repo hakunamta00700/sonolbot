@@ -233,6 +233,15 @@ else:
                 self.assertEqual(service.env.get("DUMMY"), "duck")
                 self.assertEqual(service.env.get("SONOLBOT_GUI_SESSION"), "0")
 
+        def test_init_core_runtime_with_invalid_policies_raises(self) -> None:
+            service = _FakeServiceForCoreRuntime(Path.cwd())
+
+            with self.assertRaises(AttributeError):
+                DaemonServiceCoreRuntime(service, env_policy=object())  # type: ignore[arg-type]
+
+            with self.assertRaises(AttributeError):
+                DaemonServiceCoreRuntime(service, python_policy=object())  # type: ignore[arg-type]
+
         def test_set_env_rebuilds_gui_session_marker(self) -> None:
             class _NoDisplayPolicy(DaemonServiceCoreEnvPolicy):
                 def has_gui_session(self, env: dict[str, str]) -> bool:
