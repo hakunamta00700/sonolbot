@@ -3435,6 +3435,23 @@ class DaemonService:
 
         return False
 
+    @staticmethod
+    def _dedupe_messages_by_message_id(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        deduped: list[dict[str, Any]] = []
+        seen_ids: set[int] = set()
+        for item in messages:
+            if not isinstance(item, dict):
+                continue
+            try:
+                msg_id = int(item.get("message_id"))
+            except Exception:
+                continue
+            if msg_id in seen_ids:
+                continue
+            seen_ids.add(msg_id)
+            deduped.append(item)
+        return deduped
+
     def _snapshot_pending_messages(self) -> list[dict[str, object]]:
         runtime, telegram = self._get_telegram_runtime_skill()
         if runtime is None or telegram is None:
