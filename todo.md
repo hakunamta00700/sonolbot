@@ -25,6 +25,6 @@ Rules
 - [x] R2-3: Run syntax check and commit
 
 ## 3) Final validation checklist
-- [ ] R3-1: Quick consistency pass for variable naming around control finalization
+- [x] R3-1: Quick consistency pass for variable naming around control finalization
   - Ensure no new regression risk in `message_id`/`msg_id` usage at call sites touched by these changes
-- [ ] R3-2: Run syntax check and final commit
+- [x] R3-2: Run syntax check and final commit
