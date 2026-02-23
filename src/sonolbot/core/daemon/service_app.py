@@ -3,7 +3,706 @@
 from sonolbot.core.daemon.runtime_shared import *
 from sonolbot.core.daemon import service_utils as _service_utils
 
+try:
+    import errno
+except Exception:  # pragma: no cover
+    errno = None
+
+try:
+    import fcntl
+except Exception:  # pragma: no cover
+    fcntl = None
+
+try:
+    import msvcrt
+except Exception:  # pragma: no cover
+    msvcrt = None
+
+
+class DaemonServiceAppRuntime:
+    def __init__(self, service: Any) -> None:
+        self.service = service
+        self.app_proc: subprocess.Popen[str] | None = None
+        self.app_proc_generation = 0
+        self.app_json_send_lock = threading.Lock()
+        self.app_req_lock = threading.Lock()
+        self.app_pending_responses: dict[int, queue.Queue[dict[str, Any]]] = {}
+        self.app_event_queue: queue.Queue[dict[str, Any]] = queue.Queue()
+        self.app_next_request_id = 1
+        self.app_chat_states: dict[int, dict[str, Any]] = {}
+        self.app_thread_to_chat: dict[str, int] = {}
+        self.app_turn_to_chat: dict[str, int] = {}
+        self.app_aux_turn_results: dict[str, dict[str, Any]] = {}
+        self.app_last_restart_try_epoch = 0.0
+        self._app_server_lock_fd: int | None = None
+        self._app_server_lock_busy_logged_at = 0.0
+
+    @property
+    def _owner(self) -> Any:
+        return self.service
+
+    def load_state(self) -> None:
+        self.app_chat_states = {}
+        self.app_thread_to_chat = {}
+        for chat_id, thread_id in _service_utils.load_thread_state_map(self._owner.app_server_state_file).items():
+            state = self._owner._new_chat_state()
+            if thread_id:
+                state["thread_id"] = thread_id
+                self.app_thread_to_chat[thread_id] = chat_id
+            self.app_chat_states[chat_id] = state
+
+    def save_state(self) -> None:
+        data_map: dict[int, str] = {}
+        for chat_id, state in self.app_chat_states.items():
+            thread_id = str(state.get("thread_id") or "").strip()
+            if not thread_id:
+                continue
+            data_map[chat_id] = thread_id
+        if not _service_utils.write_json_dict(
+            self._owner.app_server_state_file, _service_utils.build_session_thread_payload(data_map)
+        ):
+            self._owner._log(f"WARN: failed to save app-server state: write failed")
+            return
+        try:
+            self.secure_file(self._owner.app_server_state_file)
+        except OSError as exc:
+            self._owner._log(f"WARN: failed to secure app-server state: {exc}")
+
+    def write_log(self, prefix: str, line: str) -> None:
+        if not _service_utils.append_timestamped_log_line(self._owner.app_server_log_file, prefix, line):
+            return
+        try:
+            self.secure_file(self._owner.app_server_log_file)
+        except OSError:
+            pass
+
+    def get_chat_state(self, chat_id: int) -> dict[str, Any]:
+        state = self.app_chat_states.get(chat_id)
+        if state is None:
+            state = self._owner._new_chat_state()
+            self.app_chat_states[chat_id] = state
+        return state
+
+    def write_codex_session_meta(self) -> None:
+        if not self._owner.codex_run_meta:
+            return
+        payload = dict(self._owner.codex_run_meta)
+        payload["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            self._owner.codex_session_meta_file.parent.mkdir(parents=True, exist_ok=True)
+            self._owner.codex_session_meta_file.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            self.secure_file(self._owner.codex_session_meta_file)
+        except OSError as exc:
+            self._owner._log(f"WARN: failed to write codex session meta: {exc}")
+
+    def set_runtime_env(self, key: str, value: str) -> None:
+        self._owner.env[key] = value
+        os.environ[key] = value
+
+    def sync_codex_runtime_env(
+        self,
+        *,
+        run_id: str,
+        mode: str,
+        started_at: str,
+        resume_target: str,
+        session_id: str,
+        thread_id: str = "",
+    ) -> None:
+        self.set_runtime_env("SONOLBOT_CODEX_RUN_ID", run_id)
+        self.set_runtime_env("SONOLBOT_CODEX_MODE", mode)
+        self.set_runtime_env("SONOLBOT_CODEX_STARTED_AT", started_at)
+        self.set_runtime_env("SONOLBOT_CODEX_RESUME_TARGET", resume_target)
+        self.set_runtime_env("SONOLBOT_CODEX_SESSION_ID", session_id)
+        self.set_runtime_env("SONOLBOT_CODEX_THREAD_ID", thread_id)
+        self.set_runtime_env("SONOLBOT_CODEX_CLI_VERSION", self._owner.codex_cli_version)
+        self.set_runtime_env("SONOLBOT_CODEX_MODEL", self._owner.codex_model)
+        self.set_runtime_env("SONOLBOT_CODEX_REASONING_EFFORT", self._owner.codex_reasoning_effort)
+        self.set_runtime_env("SONOLBOT_CODEX_SESSION_META_FILE", str(self._owner.codex_session_meta_file))
+        self._owner.env.setdefault("SONOLBOT_STORE_CODEX_SESSION", "1")
+        os.environ.setdefault("SONOLBOT_STORE_CODEX_SESSION", "1")
+
+    def sync_app_server_session_meta(self, active_chat_id: int | None = None) -> None:
+        if not self._owner.codex_run_meta:
+            return
+        if str(self._owner.codex_run_meta.get("mode") or "").strip() != "app_server":
+            return
+
+        sessions: dict[str, dict[str, object]] = {}
+        thread_ids_by_chat: dict[str, str] = {}
+        first_thread = ""
+        active_thread = ""
+        for chat_id in sorted(self.app_chat_states.keys()):
+            state = self.get_chat_state(chat_id)
+            thread_id = str(state.get("thread_id") or "").strip()
+            if not thread_id:
+                continue
+            active_turn_id = str(state.get("active_turn_id") or "").strip()
+            payload: dict[str, object] = {"thread_id": thread_id}
+            if active_turn_id:
+                payload["active_turn_id"] = active_turn_id
+            queued_messages = state.get("queued_messages") or []
+            if isinstance(queued_messages, list) and queued_messages:
+                payload["queued_count"] = len(queued_messages)
+            sessions[str(chat_id)] = payload
+            thread_ids_by_chat[str(chat_id)] = thread_id
+            if not first_thread:
+                first_thread = thread_id
+            if active_chat_id is not None and chat_id == active_chat_id:
+                active_thread = thread_id
+
+        if active_chat_id is None:
+            current_thread_id = str(self._owner.codex_run_meta.get("current_thread_id") or "").strip()
+        else:
+            current_thread_id = active_thread
+
+        self._owner.codex_run_meta["transport"] = "app_server"
+        self._owner.codex_run_meta["listen"] = self._owner.app_server_listen
+        self._owner.codex_run_meta["app_server_generation"] = self.app_proc_generation
+        self._owner.codex_run_meta["app_server_pid"] = self.app_proc.pid if self._owner._app_is_running() and self.app_proc else 0
+        self._owner.codex_run_meta["thread_ids_by_chat"] = thread_ids_by_chat
+        self._owner.codex_run_meta["sessions"] = sessions
+        if active_chat_id is not None:
+            self._owner.codex_run_meta["last_active_chat_id"] = active_chat_id
+        if current_thread_id:
+            self._owner.codex_run_meta["current_thread_id"] = current_thread_id
+            self._owner.codex_run_meta["thread_id"] = current_thread_id
+        elif self._owner.codex_run_meta.get("current_thread_id"):
+            self._owner.codex_run_meta["current_thread_id"] = ""
+            self._owner.codex_run_meta["thread_id"] = ""
+
+        fallback_session_id = current_thread_id or first_thread
+        if fallback_session_id:
+            self._owner.codex_run_meta["session_id"] = fallback_session_id
+            self._owner.codex_run_meta["session_id_kind"] = "thread_id_alias"
+
+        self.sync_codex_runtime_env(
+            run_id=str(self._owner.codex_run_meta.get("run_id") or ""),
+            mode="app_server",
+            started_at=str(self._owner.codex_run_meta.get("started_at") or ""),
+            resume_target="",
+            session_id=str(self._owner.codex_run_meta.get("session_id") or ""),
+            thread_id=(current_thread_id or fallback_session_id),
+        )
+        self.write_codex_session_meta()
+
+    def read_pid_file(self, path: Path) -> int:
+        try:
+            return int(path.read_text(encoding="utf-8").strip())
+        except Exception:
+            return 0
+
+    def pid_cmdline(self, pid: int) -> str:
+        if pid <= 0:
+            return ""
+        proc_cmdline = Path(f"/proc/{pid}/cmdline")
+        if proc_cmdline.exists():
+            try:
+                raw = proc_cmdline.read_bytes()
+                if raw:
+                    return raw.replace(b"\x00", b" ").decode("utf-8", errors="ignore").strip()
+            except Exception:
+                pass
+        try:
+            proc = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "command="],
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=2,
+            )
+            if proc.returncode == 0:
+                return str(proc.stdout or "").strip()
+        except Exception:
+            pass
+        return ""
+
+    def is_codex_app_server_pid(self, pid: int) -> bool:
+        if pid <= 0 or not _is_pid_alive(pid):
+            return False
+        cmdline = self.pid_cmdline(pid).lower()
+        if not cmdline:
+            return True
+        return ("codex" in cmdline) and ("app-server" in cmdline)
+
+    @staticmethod
+    def try_lock_fd_nonblocking(fd: int) -> bool:
+        if fcntl is not None:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return True
+            except OSError as exc:
+                if errno is not None and exc.errno in (errno.EACCES, errno.EAGAIN):
+                    return False
+                raise
+        if msvcrt is not None:
+            try:
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                return True
+            except OSError:
+                return False
+        return True
+
+    @staticmethod
+    def unlock_fd(fd: int) -> None:
+        try:
+            if fcntl is not None:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            elif msvcrt is not None:
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+
+    @contextmanager
+    def exclusive_file_lock(self, lock_path: Path, wait_timeout_sec: float | None = None):
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self.secure_dir(lock_path.parent)
+        fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, SECURE_FILE_MODE)
+        self.secure_file(lock_path)
+        acquired = False
+        timeout_sec = max(0.05, float(wait_timeout_sec or self._owner.file_lock_wait_timeout_sec))
+        deadline = time.time() + timeout_sec
+        try:
+            while True:
+                if self.try_lock_fd_nonblocking(fd):
+                    acquired = True
+                    break
+                if time.time() >= deadline:
+                    raise TimeoutError(f"lock timeout: {lock_path}")
+                time.sleep(0.05)
+            yield
+        finally:
+            if acquired:
+                self.unlock_fd(fd)
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+
+    def log_app_server_lock_busy(self) -> None:
+        now_epoch = time.time()
+        if (now_epoch - self._app_server_lock_busy_logged_at) < max(5.0, float(self._owner.poll_interval_sec)):
+            return
+        self._app_server_lock_busy_logged_at = now_epoch
+        pid_hint = self.read_pid_file(self._owner.codex_pid_file)
+        self._owner._log(
+            f"app_server_lock_busy path={self._owner.app_server_lock_file} pid_hint={pid_hint or '-'}"
+        )
+
+    def acquire_lock(self) -> bool:
+        if self._app_server_lock_fd is not None:
+            return True
+        self._owner.app_server_lock_file.parent.mkdir(parents=True, exist_ok=True)
+        self.secure_dir(self._owner.app_server_lock_file.parent)
+        fd = os.open(str(self._owner.app_server_lock_file), os.O_RDWR | os.O_CREAT, SECURE_FILE_MODE)
+        if not self.try_lock_fd_nonblocking(fd):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            self.log_app_server_lock_busy()
+            return False
+        self._app_server_lock_fd = fd
+        try:
+            os.ftruncate(fd, 0)
+            os.write(fd, f"{os.getpid()}\n".encode("utf-8"))
+        except OSError:
+            pass
+        self.secure_file(self._owner.app_server_lock_file)
+        self._app_server_lock_busy_logged_at = 0.0
+        self._owner._log(f"app_server_lock_acquired path={self._owner.app_server_lock_file}")
+        return True
+
+    def release_lock(self) -> None:
+        if self._app_server_lock_fd is None:
+            return
+        self.unlock_fd(self._app_server_lock_fd)
+        try:
+            os.close(self._app_server_lock_fd)
+        except OSError:
+            pass
+        self._app_server_lock_fd = None
+        self._owner._log(f"app_server_lock_released path={self._owner.app_server_lock_file}")
+
+    def build_codex_app_server_cmd(self, role: str = "app-server") -> list[str]:
+        listen = str(getattr(self._owner, "app_server_listen", "stdio://")).strip()
+        if not listen:
+            listen = "stdio://"
+        return ["codex", "app-server", "--listen", listen]
+
+    def secure_file(self, path: Path) -> None:
+        try:
+            path.chmod(SECURE_FILE_MODE)
+        except OSError:
+            pass
+
+    def secure_dir(self, path: Path) -> None:
+        try:
+            path.chmod(SECURE_DIR_MODE)
+        except OSError:
+            pass
+
+    def harden_sensitive_permissions(self) -> None:
+        self.secure_dir(self._owner.logs_dir)
+        self.secure_dir(self._owner.state_dir)
+        self.secure_dir(self._owner.chat_locks_dir)
+        self.secure_file(self._owner.store_file)
+        env_file = self._owner.root / ".env"
+        if env_file.exists():
+            self.secure_file(env_file)
+        if self._owner.app_server_state_file.exists():
+            self.secure_file(self._owner.app_server_state_file)
+        if self._owner.app_server_log_file.exists():
+            self.secure_file(self._owner.app_server_log_file)
+        if self._owner.app_server_lock_file.exists():
+            self.secure_file(self._owner.app_server_lock_file)
+        if self._owner.agent_rewriter_state_file.exists():
+            self.secure_file(self._owner.agent_rewriter_state_file)
+        if self._owner.agent_rewriter_log_file.exists():
+            self.secure_file(self._owner.agent_rewriter_log_file)
+        if self._owner.agent_rewriter_lock_file.exists():
+            self.secure_file(self._owner.agent_rewriter_lock_file)
+        if self._owner.agent_rewriter_pid_file.exists():
+            self.secure_file(self._owner.agent_rewriter_pid_file)
+        self.secure_dir(self._owner.agent_rewriter_workspace)
+        if self._owner.codex_pid_file.exists():
+            self.secure_file(self._owner.codex_pid_file)
+        for log_path in self._owner.logs_dir.glob("*.log"):
+            self.secure_file(log_path)
+
 class DaemonServiceAppMixin:
+
+    def _get_app_runtime(self) -> DaemonServiceAppRuntime | None:
+        runtime = getattr(self, "_app_runtime_component", None)
+        if isinstance(runtime, DaemonServiceAppRuntime):
+            return runtime
+        return None
+
+    def _init_app_runtime(self, app_runtime: DaemonServiceAppRuntime | None = None) -> None:
+        if app_runtime is None:
+            app_runtime = DaemonServiceAppRuntime(self)
+        self._app_runtime_component = app_runtime
+        app_runtime.load_state()
+
+    @property
+    def app_proc(self) -> subprocess.Popen[str] | None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return None
+        return runtime.app_proc
+
+    @app_proc.setter
+    def app_proc(self, value: subprocess.Popen[str] | None) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_proc = value
+
+    @property
+    def app_proc_generation(self) -> int:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return 0
+        return runtime.app_proc_generation
+
+    @app_proc_generation.setter
+    def app_proc_generation(self, value: int) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_proc_generation = value
+
+    @property
+    def app_json_send_lock(self) -> threading.Lock:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return threading.Lock()
+        return runtime.app_json_send_lock
+
+    @app_json_send_lock.setter
+    def app_json_send_lock(self, value: threading.Lock) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_json_send_lock = value
+
+    @property
+    def app_req_lock(self) -> threading.Lock:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return threading.Lock()
+        return runtime.app_req_lock
+
+    @app_req_lock.setter
+    def app_req_lock(self, value: threading.Lock) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_req_lock = value
+
+    @property
+    def app_pending_responses(self) -> dict[int, queue.Queue[dict[str, Any]]]:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return {}
+        return runtime.app_pending_responses
+
+    @app_pending_responses.setter
+    def app_pending_responses(self, value: dict[int, queue.Queue[dict[str, Any]]]) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_pending_responses = value
+
+    @property
+    def app_event_queue(self) -> queue.Queue[dict[str, Any]]:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return queue.Queue()
+        return runtime.app_event_queue
+
+    @app_event_queue.setter
+    def app_event_queue(self, value: queue.Queue[dict[str, Any]]) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_event_queue = value
+
+    @property
+    def app_next_request_id(self) -> int:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return 1
+        return runtime.app_next_request_id
+
+    @app_next_request_id.setter
+    def app_next_request_id(self, value: int) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_next_request_id = value
+
+    @property
+    def app_chat_states(self) -> dict[int, dict[str, Any]]:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return {}
+        return runtime.app_chat_states
+
+    @app_chat_states.setter
+    def app_chat_states(self, value: dict[int, dict[str, Any]]) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_chat_states = value
+
+    @property
+    def app_thread_to_chat(self) -> dict[str, int]:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return {}
+        return runtime.app_thread_to_chat
+
+    @app_thread_to_chat.setter
+    def app_thread_to_chat(self, value: dict[str, int]) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_thread_to_chat = value
+
+    @property
+    def app_turn_to_chat(self) -> dict[str, int]:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return {}
+        return runtime.app_turn_to_chat
+
+    @app_turn_to_chat.setter
+    def app_turn_to_chat(self, value: dict[str, int]) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_turn_to_chat = value
+
+    @property
+    def app_aux_turn_results(self) -> dict[str, dict[str, Any]]:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return {}
+        return runtime.app_aux_turn_results
+
+    @app_aux_turn_results.setter
+    def app_aux_turn_results(self, value: dict[str, dict[str, Any]]) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_aux_turn_results = value
+
+    @property
+    def app_last_restart_try_epoch(self) -> float:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return 0.0
+        return runtime.app_last_restart_try_epoch
+
+    @app_last_restart_try_epoch.setter
+    def app_last_restart_try_epoch(self, value: float) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.app_last_restart_try_epoch = value
+
+    def _load_app_server_state(self) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.load_state()
+
+    def _save_app_server_state(self) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.save_state()
+
+    def _write_app_server_log(self, prefix: str, line: str) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.write_log(prefix, line)
+
+    def _secure_file(self, path: Path) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.secure_file(path)
+
+    def _secure_dir(self, path: Path) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.secure_dir(path)
+
+    def _harden_sensitive_permissions(self) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.harden_sensitive_permissions()
+
+    def _get_chat_state(self, chat_id: int) -> dict[str, Any]:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return self._new_chat_state()
+        return runtime.get_chat_state(chat_id)
+
+    def _sync_codex_runtime_env(
+        self,
+        *,
+        run_id: str,
+        mode: str,
+        started_at: str,
+        resume_target: str,
+        session_id: str,
+        thread_id: str = "",
+    ) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.sync_codex_runtime_env(
+            run_id=run_id,
+            mode=mode,
+            started_at=started_at,
+            resume_target=resume_target,
+            session_id=session_id,
+            thread_id=thread_id,
+        )
+
+    def _write_codex_session_meta(self) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.write_codex_session_meta()
+
+    def _set_runtime_env(self, key: str, value: str) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.set_runtime_env(key, value)
+
+    def _sync_app_server_session_meta(self, active_chat_id: int | None = None) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.sync_app_server_session_meta(active_chat_id=active_chat_id)
+
+    def _read_pid_file(self, path: Path) -> int:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return 0
+        return runtime.read_pid_file(path)
+
+    def _pid_cmdline(self, pid: int) -> str:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return ""
+        return runtime.pid_cmdline(pid)
+
+    def _is_codex_app_server_pid(self, pid: int) -> bool:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return _is_pid_alive(int(pid))
+        return runtime.is_codex_app_server_pid(pid)
+
+    def _try_lock_fd_nonblocking(self, fd: int) -> bool:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return True
+        return runtime.try_lock_fd_nonblocking(fd)
+
+    def _unlock_fd(self, fd: int) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.unlock_fd(fd)
+
+    def _exclusive_file_lock(self, lock_path: Path, wait_timeout_sec: float | None = None):
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        return runtime.exclusive_file_lock(lock_path, wait_timeout_sec=wait_timeout_sec)
+
+    def _log_app_server_lock_busy(self) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.log_app_server_lock_busy()
+
+    def _acquire_app_server_lock(self) -> bool:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return False
+        return runtime.acquire_lock()
+
+    def _release_app_server_lock(self) -> None:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return
+        runtime.release_lock()
+
+    def _build_codex_app_server_cmd(self, role: str = "app-server") -> list[str]:
+        runtime = self._get_app_runtime()
+        if runtime is None:
+            return [
+                "codex",
+                "app-server",
+                "--listen",
+                str(getattr(self, "app_server_listen", "stdio://")) or "stdio://",
+            ]
+        return runtime.build_codex_app_server_cmd(role=role)
 
     def _app_run_aux_turn_for_json(self, prompt_text: str, timeout_sec: float) -> dict[str, Any] | None:
         if not str(prompt_text or "").strip():

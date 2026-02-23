@@ -5,7 +5,7 @@ from sonolbot.core.daemon.runtime_shared import *
 from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.service_config import DaemonServiceConfig
 from sonolbot.core.daemon.service_task import DaemonServiceTaskMixin
-from sonolbot.core.daemon.service_app import DaemonServiceAppMixin
+from sonolbot.core.daemon.service_app import DaemonServiceAppMixin, DaemonServiceAppRuntime
 from sonolbot.core.daemon.service_lease import DaemonServiceLeaseMixin
 from sonolbot.core.daemon.service_rewriter import DaemonServiceRewriterMixin
 from sonolbot.core.daemon.service_telegram import DaemonServiceTelegramMixin
@@ -17,7 +17,12 @@ class DaemonService(
     DaemonServiceRewriterMixin,
     DaemonServiceTelegramMixin,
 ):
-    def __init__(self, *, rewriter_runtime: DaemonServiceRewriterRuntime | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        app_runtime: DaemonServiceAppRuntime | None = None,
+        rewriter_runtime: DaemonServiceRewriterRuntime | None = None,
+    ) -> None:
         self.config, init_warnings = DaemonServiceConfig.from_env()
         for name, value in self.config.as_dict().items():
             setattr(self, name, value)
@@ -27,21 +32,6 @@ class DaemonService(
         self._telegram_skill = None
         self._task_skill = None
         self.stop_requested = False
-        self.app_proc: Optional[subprocess.Popen[str]] = None
-        self.app_proc_generation = 0
-        self.app_json_send_lock = threading.Lock()
-        self.app_req_lock = threading.Lock()
-        self.app_pending_responses: dict[int, queue.Queue[dict[str, Any]]] = {}
-        self.app_event_queue: queue.Queue[dict[str, Any]] = queue.Queue()
-        self.app_next_request_id = 1
-        self.app_chat_states: dict[int, dict[str, Any]] = {}
-        self.app_thread_to_chat: dict[str, int] = {}
-        self.app_turn_to_chat: dict[str, int] = {}
-        self.app_aux_turn_results: dict[str, dict[str, Any]] = {}
-        self.app_last_restart_try_epoch = 0.0
-        self._process_lock: _ProcessFileLock | None = None
-        self._app_server_lock_fd: int | None = None
-        self._app_server_lock_busy_logged_at = 0.0
         self._owned_chat_leases: set[int] = set()
         self._chat_lease_busy_logged_at: dict[int, float] = {}
         self.completed_message_ids_recent: dict[int, float] = {}
@@ -65,9 +55,9 @@ class DaemonService(
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self.chat_locks_dir.mkdir(parents=True, exist_ok=True)
         self.agent_rewriter_workspace.mkdir(parents=True, exist_ok=True)
+        self._init_app_runtime(app_runtime)
         self._harden_sensitive_permissions()
         self._init_rewriter_runtime(rewriter_runtime)
-        self._load_app_server_state()
         self._cleanup_activity_logs()
         self._rotate_activity_log_if_needed(force=False)
 
