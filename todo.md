@@ -186,3 +186,11 @@
 - [x] 테스트: `python -m py_compile tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
 - [x] 체크: `rg -n \"core_runtime\\*\" tests/test_service_core_signature_di.py`
 - [x] 커밋: `test: forward daemon core runtime kwargs to init path`
+
+## 우선순위 25: DaemonService 생성자 설정 주입 DI 확장
+- [x] 작업: `DaemonService.__init__`에 `service_config` 주입 파라미터 추가
+- [x] 작업: `service_config` 주입이 생성자에서 직접 사용되어 `from_env`를 대체하는 경로 테스트 추가
+- [x] 테스트: `test_daemon_service_ctor_includes_core_runtime_kwargs` 및 `test_daemon_service_constructor_uses_injected_config` 추가/통과 확인
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
+- [x] 체크: `rg -n \"service_config\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
+- [x] 커밋: `refactor: accept injected daemon service config`

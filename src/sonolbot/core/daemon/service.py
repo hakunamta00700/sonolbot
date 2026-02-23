@@ -29,13 +29,18 @@ class DaemonService(
         core_runtime: DaemonServiceCoreRuntime | None = None,
         core_env_policy: DaemonServiceCoreEnvPolicy | None = None,
         core_python_policy: DaemonServiceCorePythonPolicy | None = None,
+        service_config: DaemonServiceConfig | None = None,
         task_runtime: DaemonServiceTaskRuntime | None = None,
         app_runtime: DaemonServiceAppRuntime | None = None,
         lease_runtime: DaemonServiceLeaseRuntime | None = None,
         telegram_runtime: DaemonServiceTelegramRuntime | None = None,
         rewriter_runtime: DaemonServiceRewriterRuntime | None = None,
     ) -> None:
-        self.config, init_warnings = DaemonServiceConfig.from_env()
+        if service_config is None:
+            self.config, init_warnings = DaemonServiceConfig.from_env()
+        else:
+            self.config = service_config
+            init_warnings = []
         for name, value in self.config.as_dict().items():
             setattr(self, name, value)
         self._init_core_runtime(core_runtime, env_policy=core_env_policy, python_policy=core_python_policy)
