@@ -44,7 +44,10 @@ class DaemonService(
             if service_config_loader is None:
                 self.config, init_warnings = DaemonServiceConfig.from_env()
             else:
-                self.config, init_warnings = service_config_loader()
+                loaded, init_warnings = service_config_loader()
+                if not hasattr(loaded, "as_dict"):
+                    raise TypeError("service_config_loader must return (DaemonServiceConfig, list[str])")
+                self.config = loaded
         else:
             self.config = service_config
             init_warnings = list(service_init_warnings or [])

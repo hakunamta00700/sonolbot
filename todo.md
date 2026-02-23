@@ -224,3 +224,10 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
 - [x] 체크: `rg -n \"test_daemon_service_config_takes_precedence_over_config_loader|service_config_loader\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
 - [x] 커밋: `test: service config precedence over config loader`
+
+## 우선순위 30: 설정 로더 반환값 유효성 검증
+- [x] 작업: `service_config_loader` 결과가 `DaemonServiceConfig` 타입인지 검증하고, 잘못된 반환값일 때 `TypeError`를 발생시키도록 처리
+- [x] 테스트: `test_daemon_service_config_loader_invalid_result_raises` 추가
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
+- [x] 체크: `rg -n \"invalid_result|test_daemon_service_config_loader_invalid_result_raises|TypeError\\(\"service_config_loader\"|service_config_loader\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
+- [x] 커밋: `test: validate injected service config loader result`

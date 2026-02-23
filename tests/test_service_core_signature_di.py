@@ -431,6 +431,78 @@ else:
                 else:
                     DaemonService._log = original_log
 
+        def test_daemon_service_config_loader_invalid_result_raises(self) -> None:
+            import sonolbot.core.daemon.service as service_module
+
+            original_from_env = service_module.DaemonServiceConfig.from_env
+            from_env_called = False
+
+            original_init_core_runtime = DaemonService._init_core_runtime
+            original_init_telegram_runtime = DaemonService._init_telegram_runtime
+            original_init_task_runtime = DaemonService._init_task_runtime
+            original_init_app_runtime = DaemonService._init_app_runtime
+            original_init_lease_runtime = DaemonService._init_lease_runtime
+            original_harden = DaemonService._harden_sensitive_permissions
+            original_init_rewriter_runtime = DaemonService._init_rewriter_runtime
+            original_cleanup_activity_logs = getattr(DaemonService, "_cleanup_activity_logs", None)
+            original_rotate_activity_log = getattr(DaemonService, "_rotate_activity_log_if_needed", None)
+            original_log = getattr(DaemonService, "_log", None)
+
+            def fake_from_env() -> tuple[object, list[str]]:
+                nonlocal from_env_called
+                from_env_called = True
+                return _FakeServiceConfig(Path("/tmp")), []
+
+            class _BadConfig:
+                pass
+
+            def fake_loader() -> tuple[object, list[str]]:
+                return _BadConfig(), []
+
+            def noop(*_args: object, **_kwargs: object) -> None:
+                return None
+
+            service_module.DaemonServiceConfig.from_env = fake_from_env
+            DaemonService._init_core_runtime = lambda *args, **kwargs: None
+            DaemonService._init_telegram_runtime = noop
+            DaemonService._init_task_runtime = noop
+            DaemonService._init_app_runtime = noop
+            DaemonService._init_lease_runtime = noop
+            DaemonService._harden_sensitive_permissions = noop
+            DaemonService._init_rewriter_runtime = noop
+            DaemonService._cleanup_activity_logs = noop
+            DaemonService._rotate_activity_log_if_needed = noop
+            DaemonService._log = noop
+
+            try:
+                with self.assertRaises(TypeError):
+                    DaemonService(service_config_loader=fake_loader)
+                self.assertFalse(from_env_called)
+            finally:
+                service_module.DaemonServiceConfig.from_env = original_from_env
+                DaemonService._init_core_runtime = original_init_core_runtime
+                DaemonService._init_telegram_runtime = original_init_telegram_runtime
+                DaemonService._init_task_runtime = original_init_task_runtime
+                DaemonService._init_app_runtime = original_init_app_runtime
+                DaemonService._init_lease_runtime = original_init_lease_runtime
+                DaemonService._harden_sensitive_permissions = original_harden
+                DaemonService._init_rewriter_runtime = original_init_rewriter_runtime
+                if original_cleanup_activity_logs is None:
+                    if "_cleanup_activity_logs" in DaemonService.__dict__:
+                        del DaemonService._cleanup_activity_logs
+                else:
+                    DaemonService._cleanup_activity_logs = original_cleanup_activity_logs
+                if original_rotate_activity_log is None:
+                    if "_rotate_activity_log_if_needed" in DaemonService.__dict__:
+                        del DaemonService._rotate_activity_log_if_needed
+                else:
+                    DaemonService._rotate_activity_log_if_needed = original_rotate_activity_log
+                if original_log is None:
+                    if "_log" in DaemonService.__dict__:
+                        del DaemonService._log
+                else:
+                    DaemonService._log = original_log
+
         def test_daemon_service_uses_from_env_when_no_config_injected(self) -> None:
             import sonolbot.core.daemon.service as service_module
 
