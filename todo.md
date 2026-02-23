@@ -60,3 +60,10 @@
 - [x] 테스트: `tests/test_service_task_runtime_di.py` 추가 (기본 런타임 생성/주입/캐시 동작 검증)
 - [x] 체크: `rg -n "_task_runtime_component|_init_task_runtime|_get_task_runtime" src/sonolbot/core/daemon/service_task.py src/sonolbot/core/daemon/service.py tests/test_service_task_runtime_di.py`
 - [x] 커밋: `refactor: inject task runtime into DaemonService`
+
+## 우선순위 8: Telegram 런타임 DI 정리
+- [x] 작업: `DaemonServiceTelegramRuntime` 생성 및 `daemon/service.py` 생성자에 `telegram_runtime` 주입 추가
+- [x] 작업: `DaemonServiceTelegramMixin._get_telegram_runtime_skill` 런타임 위임 재구성 (`_telegram_runtime`/`_telegram_skill` 제거)
+- [x] 테스트: `tests/test_service_telegram_runtime_di.py` 추가 (기본 런타임 생성/주입/캐시 동작 검증)
+- [x] 체크: `rg -n "_telegram_runtime_component|_init_telegram_runtime|_get_telegram_runtime" src/sonolbot/core/daemon/service_telegram.py src/sonolbot/core/daemon/service.py tests/test_service_telegram_runtime_di.py`
+- [ ] 커밋: `refactor: inject telegram runtime into DaemonService`

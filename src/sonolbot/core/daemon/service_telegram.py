@@ -4,7 +4,25 @@ from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.runtime_shared import *
 
 
+class DaemonServiceTelegramRuntime:
+    def __init__(self, service: Any) -> None:
+        self.service = service
+        self.telegram_runtime: dict[str, object] | None = None
+        self.telegram_skill: object | None = None
+
+
 class DaemonServiceTelegramMixin:
+    def _init_telegram_runtime(self, telegram_runtime: DaemonServiceTelegramRuntime | None = None) -> None:
+        if telegram_runtime is None:
+            telegram_runtime = DaemonServiceTelegramRuntime(self)
+        self._telegram_runtime_component = telegram_runtime
+
+    def _get_telegram_runtime(self) -> DaemonServiceTelegramRuntime | None:
+        runtime = getattr(self, "_telegram_runtime_component", None)
+        if isinstance(runtime, DaemonServiceTelegramRuntime):
+            return runtime
+        return None
+
     @staticmethod
     def _normalize_telegram_parse_mode(parse_mode: object) -> str:
         return _service_utils.normalize_telegram_parse_mode(parse_mode)
@@ -30,17 +48,20 @@ class DaemonServiceTelegramMixin:
         return rendered
 
     def _get_telegram_runtime_skill(self) -> tuple[dict[str, object] | None, object | None]:
-        if self._telegram_runtime is not None and self._telegram_skill is not None:
-            return self._telegram_runtime, self._telegram_skill
+        runtime = self._get_telegram_runtime()
+        if runtime is None:
+            return None, None
+        if runtime.telegram_runtime is not None and runtime.telegram_skill is not None:
+            return runtime.telegram_runtime, runtime.telegram_skill
         try:
-            runtime = build_telegram_runtime()
+            runtime_data = build_telegram_runtime()
             skill = get_telegram_skill()
         except Exception as exc:
             self._log(f"WARN: telegram runtime init failed: {exc}")
             return None, None
-        self._telegram_runtime = runtime
-        self._telegram_skill = skill
-        return runtime, skill
+        runtime.telegram_runtime = runtime_data
+        runtime.telegram_skill = skill
+        return runtime_data, skill
 
     @staticmethod
     def _escape_telegram_html(value: object) -> str:
