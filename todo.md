@@ -1,6 +1,6 @@
 # Daemon Service Refactor TODO (Rebased v4)
 
-Goal: reduce duplication and reduce control/queueing risk in `src/sonolbot/core/daemon/service.py` while keeping behavior unchanged.
+Goal: reduce duplication and control/queueing risk in `src/sonolbot/core/daemon/service.py` while keeping behavior unchanged.
 
 Rules
 - Keep each step small and focused.
@@ -30,9 +30,9 @@ Rules
 - [x] R3-2: Run syntax check and final commit.
 
 ## 4) Queue deduplication cleanup (Priority 3)
-- [ ] R4-1: Add reusable `_dedupe_messages_by_message_id(...)` helper
+- [x] R4-1: Add reusable `_dedupe_messages_by_message_id(...)` helper
   - Centralize repeated merge-dedupe loops on `message_id` and skip invalid IDs safely.
-- [ ] R4-2: Apply helper in `_handle_single_control_message` temp-task seed branch
+- [x] R4-2: Apply helper in `_handle_single_control_message` temp-task seed branch
   - Replace manual dedupe loop when combining `queued_messages` + temp seed messages.
 - [ ] R4-3: Apply helper in `_app_process_cycle` queued merge branches
   - Replace manual dedupe loops in active-turn and initial turn batching paths.

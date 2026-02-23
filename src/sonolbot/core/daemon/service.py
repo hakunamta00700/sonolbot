@@ -3020,18 +3020,7 @@ class DaemonService:
                 self._clear_selected_task_state(state)
                 queued = list(state.get("queued_messages") or [])
                 queued.extend(self._build_temp_task_seed_batch(chat_id=chat_id, state=state))
-                deduped_queued: list[dict[str, Any]] = []
-                seen_ids: set[int] = set()
-                for queued_item in queued:
-                    try:
-                        queued_msg_id = int(queued_item.get("message_id"))
-                    except Exception:
-                        continue
-                    if queued_msg_id in seen_ids:
-                        continue
-                    seen_ids.add(queued_msg_id)
-                    deduped_queued.append(queued_item)
-                state["queued_messages"] = deduped_queued
+                state["queued_messages"] = self._dedupe_messages_by_message_id(messages=queued)
                 self._clear_temp_task_seed(state)
                 self._clear_ui_mode(state)
                 reply_text = (
