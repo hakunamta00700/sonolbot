@@ -1,5 +1,7 @@
 ﻿"Daemon service orchestration."
 from __future__ import annotations
+from typing import Callable
+
 from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.runtime_shared import *
 from sonolbot.core.daemon.service_core import (
@@ -31,6 +33,7 @@ class DaemonService(
         core_python_policy: DaemonServiceCorePythonPolicy | None = None,
         service_config: DaemonServiceConfig | None = None,
         service_init_warnings: list[str] | None = None,
+        service_config_loader: Callable[[], tuple[DaemonServiceConfig, list[str]]] | None = None,
         task_runtime: DaemonServiceTaskRuntime | None = None,
         app_runtime: DaemonServiceAppRuntime | None = None,
         lease_runtime: DaemonServiceLeaseRuntime | None = None,
@@ -38,7 +41,10 @@ class DaemonService(
         rewriter_runtime: DaemonServiceRewriterRuntime | None = None,
     ) -> None:
         if service_config is None:
-            self.config, init_warnings = DaemonServiceConfig.from_env()
+            if service_config_loader is None:
+                self.config, init_warnings = DaemonServiceConfig.from_env()
+            else:
+                self.config, init_warnings = service_config_loader()
         else:
             self.config = service_config
             init_warnings = list(service_init_warnings or [])

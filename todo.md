@@ -209,3 +209,11 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
 - [x] 체크: `rg -n \"from_env\\(|test_daemon_service_uses_from_env_when_no_config_injected\" tests/test_service_core_signature_di.py`
 - [x] 커밋: `test: keep default env warning path intact`
+
+## 우선순위 28: 설정 로더 DI 주입
+- [x] 작업: `service_config_loader` 주입 파라미터 추가 (`from_env` 대체 함수 주입)
+- [x] 테스트: `service_config_loader` 파라미터가 `DaemonService.__init__` 시그니처에 존재/기본값 `None`인지 확인
+- [x] 테스트: `test_daemon_service_ctor_uses_injected_config_loader` 추가
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
+- [x] 체크: `rg -n \"service_config_loader|test_daemon_service_ctor_uses_injected_config_loader\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
+- [x] 커밋: `refactor: inject service config loader`

@@ -252,6 +252,7 @@ else:
                 "core_python_policy",
                 "service_config",
                 "service_init_warnings",
+                "service_config_loader",
             ):
                 self.assertIn(name, params)
 
@@ -260,6 +261,86 @@ else:
             self.assertEqual(params["core_python_policy"].default, None)
             self.assertEqual(params["service_config"].default, None)
             self.assertEqual(params["service_init_warnings"].default, None)
+            self.assertEqual(params["service_config_loader"].default, None)
+
+        def test_daemon_service_ctor_uses_injected_config_loader(self) -> None:
+            import sonolbot.core.daemon.service as service_module
+
+            original_from_env = service_module.DaemonServiceConfig.from_env
+            loader_called = False
+
+            original_init_core_runtime = DaemonService._init_core_runtime
+            original_init_telegram_runtime = DaemonService._init_telegram_runtime
+            original_init_task_runtime = DaemonService._init_task_runtime
+            original_init_app_runtime = DaemonService._init_app_runtime
+            original_init_lease_runtime = DaemonService._init_lease_runtime
+            original_harden = DaemonService._harden_sensitive_permissions
+            original_init_rewriter_runtime = DaemonService._init_rewriter_runtime
+            original_cleanup_activity_logs = getattr(DaemonService, "_cleanup_activity_logs", None)
+            original_rotate_activity_log = getattr(DaemonService, "_rotate_activity_log_if_needed", None)
+            original_log = getattr(DaemonService, "_log", None)
+
+            def fake_loader() -> tuple[object, list[str]]:
+                nonlocal loader_called
+                loader_called = True
+                return _FakeServiceConfig(Path("/tmp")), ["from-loader-warning"]
+
+            def fake_init_core_runtime(
+                self,
+                core_runtime=None,
+                *,
+                env_policy=None,
+                python_policy=None,
+            ) -> None:
+                self._core_runtime_component = object()
+
+            def noop(*_args: object, **_kwargs: object) -> None:
+                return None
+
+            def fake_log(_self: object, message: str) -> None:
+                pass
+
+            try:
+                with tempfile.TemporaryDirectory():
+                    service_module.DaemonServiceConfig.from_env = lambda: (_FakeServiceConfig(Path("/tmp")), [])
+                    DaemonService._init_core_runtime = fake_init_core_runtime
+                    DaemonService._init_telegram_runtime = noop
+                    DaemonService._init_task_runtime = noop
+                    DaemonService._init_app_runtime = noop
+                    DaemonService._init_lease_runtime = noop
+                    DaemonService._harden_sensitive_permissions = noop
+                    DaemonService._init_rewriter_runtime = noop
+                    DaemonService._cleanup_activity_logs = noop
+                    DaemonService._rotate_activity_log_if_needed = noop
+                    DaemonService._log = fake_log
+
+                    service = DaemonService(service_config_loader=fake_loader)
+                    self.assertTrue(loader_called)
+                    self.assertIsInstance(service.config, _FakeServiceConfig)
+            finally:
+                service_module.DaemonServiceConfig.from_env = original_from_env
+                DaemonService._init_core_runtime = original_init_core_runtime
+                DaemonService._init_telegram_runtime = original_init_telegram_runtime
+                DaemonService._init_task_runtime = original_init_task_runtime
+                DaemonService._init_app_runtime = original_init_app_runtime
+                DaemonService._init_lease_runtime = original_init_lease_runtime
+                DaemonService._harden_sensitive_permissions = original_harden
+                DaemonService._init_rewriter_runtime = original_init_rewriter_runtime
+                if original_cleanup_activity_logs is None:
+                    if "_cleanup_activity_logs" in DaemonService.__dict__:
+                        del DaemonService._cleanup_activity_logs
+                else:
+                    DaemonService._cleanup_activity_logs = original_cleanup_activity_logs
+                if original_rotate_activity_log is None:
+                    if "_rotate_activity_log_if_needed" in DaemonService.__dict__:
+                        del DaemonService._rotate_activity_log_if_needed
+                else:
+                    DaemonService._rotate_activity_log_if_needed = original_rotate_activity_log
+                if original_log is None:
+                    if "_log" in DaemonService.__dict__:
+                        del DaemonService._log
+                else:
+                    DaemonService._log = original_log
 
         def test_daemon_service_uses_from_env_when_no_config_injected(self) -> None:
             import sonolbot.core.daemon.service as service_module
