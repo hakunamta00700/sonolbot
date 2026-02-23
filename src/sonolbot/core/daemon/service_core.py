@@ -24,10 +24,28 @@ class DaemonServiceCoreEnvPolicy:
         return bool(env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
 
 
+class DaemonServiceCorePythonPolicy:
+    def build_venv_python_paths(self, root: Path) -> list[Path]:
+        candidates: list[Path] = [root / ".venv" / "bin" / "python", root / ".venv" / "bin" / "python3"]
+        if os.name == "nt":
+            return [
+                root / ".venv" / "Scripts" / "python.exe",
+                root / ".venv" / "Scripts" / "python3.exe",
+                *candidates,
+            ]
+        return candidates
+
+
 class DaemonServiceCoreRuntime:
-    def __init__(self, service: Any, env_policy: DaemonServiceCoreEnvPolicy | None = None) -> None:
+    def __init__(
+        self,
+        service: Any,
+        env_policy: DaemonServiceCoreEnvPolicy | None = None,
+        python_policy: DaemonServiceCorePythonPolicy | None = None,
+    ) -> None:
         self.service = service
         self.env_policy = env_policy or DaemonServiceCoreEnvPolicy()
+        self.python_policy = python_policy or DaemonServiceCorePythonPolicy()
         self.python_bin = self._detect_python_bin()
         self.codex_run_meta: Optional[dict[str, object]] = None
         self.codex_cli_version = ""
@@ -58,11 +76,7 @@ class DaemonServiceCoreRuntime:
         return sys.executable
 
     def _candidate_venv_python_paths(self, root: Path) -> list[Path]:
-        candidates: list[Path] = [root / ".venv" / "bin" / "python", root / ".venv" / "bin" / "python3"]
-        if os.name == "nt":
-            candidates.insert(0, root / ".venv" / "Scripts" / "python.exe")
-            candidates.insert(1, root / ".venv" / "Scripts" / "python3.exe")
-        return candidates
+        return self.python_policy.build_venv_python_paths(root)
 
     def _has_gui_session(self, env: dict[str, str] | None = None) -> bool:
         target = dict(self.env) if env is None else env
@@ -75,9 +89,10 @@ class DaemonServiceCoreMixin:
         core_runtime: DaemonServiceCoreRuntime | None = None,
         *,
         env_policy: DaemonServiceCoreEnvPolicy | None = None,
+        python_policy: DaemonServiceCorePythonPolicy | None = None,
     ) -> None:
         if core_runtime is None:
-            core_runtime = DaemonServiceCoreRuntime(self, env_policy=env_policy)
+            core_runtime = DaemonServiceCoreRuntime(self, env_policy=env_policy, python_policy=python_policy)
         self._core_runtime_component = core_runtime
 
     def _get_core_runtime(self) -> DaemonServiceCoreRuntime | None:

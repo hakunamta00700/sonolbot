@@ -29,24 +29,46 @@ def _ensure_fake_dotenv() -> None:
 
 def _import_service_core():
     try:
-        from sonolbot.core.daemon.service_core import DaemonServiceCoreEnvPolicy, DaemonServiceCoreMixin, DaemonServiceCoreRuntime
+        from sonolbot.core.daemon.service_core import (
+            DaemonServiceCoreEnvPolicy,
+            DaemonServiceCoreMixin,
+            DaemonServiceCorePythonPolicy,
+            DaemonServiceCoreRuntime,
+        )
 
-        return DaemonServiceCoreMixin, DaemonServiceCoreRuntime, DaemonServiceCoreEnvPolicy, None
+        return (
+            DaemonServiceCoreMixin,
+            DaemonServiceCoreRuntime,
+            DaemonServiceCoreEnvPolicy,
+            DaemonServiceCorePythonPolicy,
+            None,
+        )
     except ModuleNotFoundError as exc:
         if "dotenv" not in str(exc):
-            return None, None, None, exc
+            return None, None, None, None, exc
         _ensure_fake_dotenv()
         try:
-            from sonolbot.core.daemon.service_core import DaemonServiceCoreMixin, DaemonServiceCoreRuntime, DaemonServiceCoreEnvPolicy
+            from sonolbot.core.daemon.service_core import (
+                DaemonServiceCoreEnvPolicy,
+                DaemonServiceCoreMixin,
+                DaemonServiceCorePythonPolicy,
+                DaemonServiceCoreRuntime,
+            )
 
-            return DaemonServiceCoreMixin, DaemonServiceCoreRuntime, DaemonServiceCoreEnvPolicy, None
+            return (
+                DaemonServiceCoreMixin,
+                DaemonServiceCoreRuntime,
+                DaemonServiceCoreEnvPolicy,
+                DaemonServiceCorePythonPolicy,
+                None,
+            )
         except Exception as inner_exc:  # pragma: no cover
-            return None, None, None, inner_exc
+            return None, None, None, None, inner_exc
     except Exception as exc:  # pragma: no cover
-        return None, None, None, exc
+        return None, None, None, None, exc
 
 
-DaemonServiceCoreMixin, DaemonServiceCoreRuntime, DaemonServiceCoreEnvPolicy, _IMPORT_ERROR = _import_service_core()
+DaemonServiceCoreMixin, DaemonServiceCoreRuntime, DaemonServiceCoreEnvPolicy, DaemonServiceCorePythonPolicy, _IMPORT_ERROR = _import_service_core()
 
 
 if DaemonServiceCoreMixin is None or DaemonServiceCoreRuntime is None:
@@ -123,6 +145,25 @@ else:
                 service = _FakeServiceForCoreRuntime(root)
                 service._init_core_runtime()
                 self.assertEqual(service.python_bin, expected)
+
+        def test_init_core_runtime_uses_python_policy(self) -> None:
+            with tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                priority_path = root / "custom" / "python"
+                priority_path.parent.mkdir(parents=True, exist_ok=True)
+                priority_path.write_text("", encoding="utf-8")
+
+                class _CustomPythonPolicy(DaemonServiceCorePythonPolicy):
+                    def build_venv_python_paths(self, path_root: Path) -> list[Path]:
+                        fallback = path_root / ".venv" / "bin" / "python"
+                        if not fallback.parent.exists():
+                            fallback.parent.mkdir(parents=True, exist_ok=True)
+                        fallback.write_text("", encoding="utf-8")
+                        return [priority_path, fallback]
+
+                service = _FakeServiceForCoreRuntime(root)
+                service._init_core_runtime(python_policy=_CustomPythonPolicy())
+                self.assertEqual(service.python_bin, str(priority_path))
 
         def test_set_env_rebuilds_gui_session_marker(self) -> None:
             class _NoDisplayPolicy(DaemonServiceCoreEnvPolicy):

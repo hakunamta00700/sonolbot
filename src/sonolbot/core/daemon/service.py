@@ -2,7 +2,12 @@
 from __future__ import annotations
 from sonolbot.core.daemon import service_utils as _service_utils
 from sonolbot.core.daemon.runtime_shared import *
-from sonolbot.core.daemon.service_core import DaemonServiceCoreEnvPolicy, DaemonServiceCoreMixin, DaemonServiceCoreRuntime
+from sonolbot.core.daemon.service_core import (
+    DaemonServiceCoreEnvPolicy,
+    DaemonServiceCoreMixin,
+    DaemonServiceCorePythonPolicy,
+    DaemonServiceCoreRuntime,
+)
 from sonolbot.core.daemon.service_config import DaemonServiceConfig
 from sonolbot.core.daemon.service_task import DaemonServiceTaskMixin, DaemonServiceTaskRuntime
 from sonolbot.core.daemon.service_app import DaemonServiceAppMixin, DaemonServiceAppRuntime
@@ -23,6 +28,7 @@ class DaemonService(
         *,
         core_runtime: DaemonServiceCoreRuntime | None = None,
         core_env_policy: DaemonServiceCoreEnvPolicy | None = None,
+        core_python_policy: DaemonServiceCorePythonPolicy | None = None,
         task_runtime: DaemonServiceTaskRuntime | None = None,
         app_runtime: DaemonServiceAppRuntime | None = None,
         lease_runtime: DaemonServiceLeaseRuntime | None = None,
@@ -32,7 +38,7 @@ class DaemonService(
         self.config, init_warnings = DaemonServiceConfig.from_env()
         for name, value in self.config.as_dict().items():
             setattr(self, name, value)
-        self._init_core_runtime(core_runtime, env_policy=core_env_policy)
+        self._init_core_runtime(core_runtime, env_policy=core_env_policy, python_policy=core_python_policy)
         for message in init_warnings:
             self._log(f"WARN: {message}")
 
