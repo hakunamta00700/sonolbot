@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 import re
 from typing import Any
 
@@ -42,6 +44,56 @@ def env_bool(name: str, default: bool) -> bool:
     if raw in {"0", "false", "no", "off"}:
         return False
     return default
+
+
+def read_json_dict(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def build_session_thread_payload(mapping: dict[int, str]) -> dict[str, Any]:
+    data: dict[str, Any] = {"version": 1, "sessions": {}}
+    sessions: dict[str, dict[str, str]] = {}
+    for chat_id, thread_id in mapping.items():
+        normalized_thread_id = str(thread_id or "").strip()
+        if not normalized_thread_id:
+            continue
+        sessions[str(chat_id)] = {"thread_id": normalized_thread_id}
+    data["sessions"] = sessions
+    return data
+
+
+def write_json_dict(path: Path, payload: dict[str, Any]) -> bool:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return True
+    except OSError:
+        return False
+
+
+def load_thread_state_map(path: Path) -> dict[int, str]:
+    raw = read_json_dict(path)
+    sessions = raw.get("sessions", {})
+    if not isinstance(sessions, dict):
+        return {}
+    out: dict[int, str] = {}
+    for chat_key, payload in sessions.items():
+        try:
+            chat_id = int(chat_key)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        thread_id = str(payload.get("thread_id") or "").strip()
+        if thread_id:
+            out[chat_id] = thread_id
+    return out
 
 
 def normalize_telegram_parse_mode(parse_mode: object) -> str:

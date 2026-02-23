@@ -244,85 +244,50 @@ class DaemonService:
     def _load_app_server_state(self) -> None:
         self.app_chat_states = {}
         self.app_thread_to_chat = {}
-        if not self.app_server_state_file.exists():
-            return
-        try:
-            raw = json.loads(self.app_server_state_file.read_text(encoding="utf-8"))
-        except Exception:
-            return
-        sessions = raw.get("sessions", {})
-        if not isinstance(sessions, dict):
-            return
-        for chat_key, payload in sessions.items():
-            try:
-                chat_id = int(chat_key)
-            except Exception:
-                continue
-            if not isinstance(payload, dict):
-                continue
+        for chat_id, thread_id in _service_utils.load_thread_state_map(self.app_server_state_file).items():
             state = self._new_chat_state()
-            thread_id = str(payload.get("thread_id") or "").strip()
             if thread_id:
                 state["thread_id"] = thread_id
                 self.app_thread_to_chat[thread_id] = chat_id
             self.app_chat_states[chat_id] = state
 
     def _save_app_server_state(self) -> None:
-        data: dict[str, Any] = {"version": 1, "sessions": {}}
+        data_map: dict[int, str] = {}
         for chat_id, state in self.app_chat_states.items():
             thread_id = str(state.get("thread_id") or "").strip()
             if not thread_id:
                 continue
-            data["sessions"][str(chat_id)] = {"thread_id": thread_id}
+            data_map[chat_id] = thread_id
+        if not _service_utils.write_json_dict(
+            self.app_server_state_file, _service_utils.build_session_thread_payload(data_map)
+        ):
+            self._log(f"WARN: failed to save app-server state: write failed")
+            return
         try:
-            self.app_server_state_file.parent.mkdir(parents=True, exist_ok=True)
-            self.app_server_state_file.write_text(
-                json.dumps(data, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
             self._secure_file(self.app_server_state_file)
         except OSError as exc:
-            self._log(f"WARN: failed to save app-server state: {exc}")
+            self._log(f"WARN: failed to secure app-server state: {exc}")
 
     def _load_agent_rewriter_state(self) -> None:
         self.rewriter_chat_threads = {}
-        if not self.agent_rewriter_state_file.exists():
-            return
-        try:
-            raw = json.loads(self.agent_rewriter_state_file.read_text(encoding="utf-8"))
-        except Exception:
-            return
-        sessions = raw.get("sessions", {})
-        if not isinstance(sessions, dict):
-            return
-        for chat_key, payload in sessions.items():
-            try:
-                chat_id = int(chat_key)
-            except Exception:
-                continue
-            if not isinstance(payload, dict):
-                continue
-            thread_id = str(payload.get("thread_id") or "").strip()
-            if not thread_id:
-                continue
-            self.rewriter_chat_threads[chat_id] = thread_id
+        self.rewriter_chat_threads.update(_service_utils.load_thread_state_map(self.agent_rewriter_state_file))
 
     def _save_agent_rewriter_state(self) -> None:
-        data: dict[str, Any] = {"version": 1, "sessions": {}}
+        data_map: dict[int, str] = {}
         for chat_id, thread_id in self.rewriter_chat_threads.items():
-            normalized_thread_id = str(thread_id or "").strip()
-            if not normalized_thread_id:
+            thread_id_text = str(thread_id or "").strip()
+            if not thread_id_text:
                 continue
-            data["sessions"][str(chat_id)] = {"thread_id": normalized_thread_id}
+            data_map[chat_id] = thread_id_text
+        if not _service_utils.write_json_dict(
+            self.agent_rewriter_state_file, _service_utils.build_session_thread_payload(data_map)
+        ):
+            self._log(f"WARN: failed to save agent-rewriter state: write failed")
+            return
         try:
-            self.agent_rewriter_state_file.parent.mkdir(parents=True, exist_ok=True)
-            self.agent_rewriter_state_file.write_text(
-                json.dumps(data, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
             self._secure_file(self.agent_rewriter_state_file)
         except OSError as exc:
-            self._log(f"WARN: failed to save agent-rewriter state: {exc}")
+            self._log(f"WARN: failed to secure agent-rewriter state: {exc}")
 
     def _write_app_server_log(self, prefix: str, line: str) -> None:
         text = line.rstrip("\n")
