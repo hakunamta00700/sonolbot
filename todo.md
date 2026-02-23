@@ -17,9 +17,9 @@ Rules
 - [x] P1-4: Run syntax check and commit phase completion
 
 ## 2) Phase 2: Logging helper cleanup (Priority 2)
-- [ ] P2-1: Add shared timestamped log append helper in `service_utils.py`
-- [ ] P2-2: Refactor `_write_app_server_log` / `_write_agent_rewriter_log` to use shared helper
-- [ ] P2-3: Keep behavior identical; run syntax check and commit
+- [x] P2-1: Add shared timestamped log append helper in `service_utils.py`
+- [x] P2-2: Refactor `_write_app_server_log` / `_write_agent_rewriter_log` to use shared helper
+- [x] P2-3: Keep behavior identical; run syntax check and commit
 
 ## 3) Phase 3: Interaction boundary cleanup (Priority 3)
 - [ ] P3-1: Review large command handlers and extract any new helper candidates

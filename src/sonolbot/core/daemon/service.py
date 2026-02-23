@@ -290,25 +290,17 @@ class DaemonService:
             self._log(f"WARN: failed to secure agent-rewriter state: {exc}")
 
     def _write_app_server_log(self, prefix: str, line: str) -> None:
-        text = line.rstrip("\n")
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        rendered = f"[{ts}] [{prefix}] {text}\n"
+        if not _service_utils.append_timestamped_log_line(self.app_server_log_file, prefix, line):
+            return
         try:
-            self.app_server_log_file.parent.mkdir(parents=True, exist_ok=True)
-            with self.app_server_log_file.open("a", encoding="utf-8") as f:
-                f.write(rendered)
             self._secure_file(self.app_server_log_file)
         except OSError:
             pass
 
     def _write_agent_rewriter_log(self, prefix: str, line: str) -> None:
-        text = line.rstrip("\n")
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        rendered = f"[{ts}] [{prefix}] {text}\n"
+        if not _service_utils.append_timestamped_log_line(self.agent_rewriter_log_file, prefix, line):
+            return
         try:
-            self.agent_rewriter_log_file.parent.mkdir(parents=True, exist_ok=True)
-            with self.agent_rewriter_log_file.open("a", encoding="utf-8") as f:
-                f.write(rendered)
             self._secure_file(self.agent_rewriter_log_file)
         except OSError:
             pass

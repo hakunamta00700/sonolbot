@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 import re
 from typing import Any
@@ -94,6 +95,18 @@ def load_thread_state_map(path: Path) -> dict[int, str]:
         if thread_id:
             out[chat_id] = thread_id
     return out
+
+
+def append_timestamped_log_line(path: Path, prefix: str, line: str) -> bool:
+    text = str(line or "").rstrip("\n")
+    rendered = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{prefix}] {text}\n"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(rendered)
+        return True
+    except OSError:
+        return False
 
 
 def normalize_telegram_parse_mode(parse_mode: object) -> str:
