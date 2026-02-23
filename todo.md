@@ -1,39 +1,52 @@
-# Daemon Service Refactor TODO (Rebased v4)
+﻿# DaemonService refactor plan (v1)
 
-Goal: reduce duplication and control/queueing risk in `src/sonolbot/core/daemon/service.py` while keeping behavior unchanged.
+목표: `src/sonolbot/core/daemon/service.py`의 prefix별 책임을 외부 모듈로 분리해 가독성과 테스트 가능성을 높이고, 앞으로 기능 단위로 injection(믹신 또는 외부 클래스) 형태로 확장할 수 있게 정리한다.
 
-Rules
-- Keep each step small and focused.
-- Mark each item done immediately: `- [x]`
-- For each task: implement -> test -> update todo -> commit.
+원칙
+- 한 번에 한 개의 기능 덩어리만 이동
+- 각 단계는 `작업 -> 작업완료 -> 테스트 -> 체크 -> 커밋` 순서로 진행
+- 기존 동작 호환성 우선
+- 큰 이동 이전에 `todo.md`에서 다음 단계 상태를 바로 갱신
 
-## 1) Control reply pattern unification (Priority 1)
-- [x] R1-1: Add `_send_control_reply(...)` helper in `DaemonService`
-  - Centralize `telegram_send_text` + `_finalize_control_message_if_sent` + return value.
-  - Keep defaults compatible with current UI flow (`request_max_attempts=1`, optional `parse_mode`, optional keyboards).
-- [x] R1-2: Use `_send_control_reply(...)` in `_forward_task_guide_edit_request`
-  - Replace direct send/finalize pairs with helper.
-- [x] R1-3: Use `_send_control_reply(...)` in `_handle_single_control_message`
-  - Replace repeated `sent = ...` + finalize call for simple control-message branches.
-- [x] R1-4: Run syntax check and commit.
+## 1) 우선순위 1: Telegram 기능 분리 (`_telegram_*`)
+- [x] 작업: `src/sonolbot/core/daemon/service_telegram.py`에 Telegram mixin 생성
+- [x] 작업: `DaemonService`가 `DaemonServiceTelegramMixin`을 상속하도록 변경
+- [x] 작업완료: `_normalize_telegram_parse_mode`, `_resolve_telegram_parse_mode`, `_sanitize_telegram_text_for_parse_mode`, `_get_telegram_runtime_skill`, `_escape_telegram_html`, `_telegram_get_me_name`, `_telegram_get_my_name`, `_telegram_set_my_name`, `_telegram_send_text_once`, `_telegram_send_text`, `_telegram_edit_message_text`, `_finalize_control_message`, `_finalize_control_message_if_sent`, `_send_control_reply`를 mixin으로 이동
+- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
+- [x] 체크: `rg -n "_normalize_telegram_parse_mode|_send_control_reply|_telegram_edit_message_text|class DaemonService" src/sonolbot/core/daemon/service.py src/sonolbot/core/daemon/service_telegram.py` 결과로 이전 메서드가 이동되었는지 확인
+- [x] 커밋: `refactor: extract telegram helpers into mixin`
 
-## 2) Telegram transport helper consolidation (Priority 2)
-- [x] R2-1: Add internal `_telegram_send_text_once(...)` helper for raw payload send attempts
-  - Single place for API fallback attempts (`send_text_*` family), including `TypeError` fallback and `exc` logging.
-  - Keep exact semantics for parse-mode selection and parse-fallback behavior.
-- [x] R2-2: Refactor `_telegram_send_text` and `_telegram_edit_message_text` to call the new helper.
-- [x] R2-3: Run syntax check and commit.
+## 2) 우선순위 2: Task 기능 분리 (`_task_*`)
+- [ ] 작업: Task 관련 메서드를 `service_task.py`로 이동
+- [ ] 작업완료: `_get_task_skill`은 유지 의사결정 후 공용/Task mixin 적용
+- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
+- [ ] 체크: Task prefix 누락 항목 없는지 점검
+- [ ] 커밋: 작업 완료 후 순차 커밋
 
-## 3) Final validation checklist
-- [x] R3-1: Quick consistency pass for variable naming around control finalization.
-  - Ensure no new regression risk in `message_id`/`msg_id` usage at call sites touched by these changes.
-- [x] R3-2: Run syntax check and final commit.
+## 3) 우선순위 3: App 서버 기능 분리 (`_app_*`)
+- [ ] 작업: App 서버 IPC/스레드/루프/세션 메서드를 `service_app.py`로 이동
+- [ ] 작업완료: `DaemonService`의 책임도메인 분리 범위 정리
+- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
+- [ ] 체크: `_app_*` 호출부 위임 경로 정합성 확인
+- [ ] 커밋: 작업 완료 후 순차 커밋
 
-## 4) Queue deduplication cleanup (Priority 3)
-- [x] R4-1: Add reusable `_dedupe_messages_by_message_id(...)` helper
-  - Centralize repeated merge-dedupe loops on `message_id` and skip invalid IDs safely.
-- [x] R4-2: Apply helper in `_handle_single_control_message` temp-task seed branch
-  - Replace manual dedupe loop when combining `queued_messages` + temp seed messages.
-- [x] R4-3: Apply helper in `_app_process_cycle` queued merge branches
-  - Replace manual dedupe loops in active-turn and initial turn batching paths.
-- [x] R4-4: Run syntax check and commit.
+## 4) 우선순위 4: 채팅 릴리스/락 분리 (`_chat_lease_*`)
+- [ ] 작업: chat lease 전용 로직을 별도 mixin으로 이동
+- [ ] 작업완료: `_chat_lease_*`와 릴리스/터치/상태 계산 책임 분리
+- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
+- [ ] 체크: 상태 파일 경로/락 해제 동작 영향 없음 확인
+- [ ] 커밋: 작업 완료 후 순차 커밋
+
+## 5) 우선순위 5: Rewriter 기능 분리 (`_rewriter_*`)
+- [ ] 작업: Agent rewriter 관련 메서드 분리
+- [ ] 작업완료: `_rewriter_*` 동작을 외부 클래스 또는 mixin으로 위임
+- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
+- [ ] 체크: IPC 경로/로그 기록 부작용 점검
+- [ ] 커밋: 작업 완료 후 순차 커밋
+
+## 6) 우선순위 6: 기타 공통 헬퍼 정리
+- [ ] 작업: `_send_control_reply` 의존성 최소화 및 중복 정리 마무리
+- [ ] 작업완료: `todo.md` 진행표준을 유지하며 다음 단계 인덱스 반영
+- [ ] 테스트: 요청 없음(사용자 요청 시 별도 실행)
+- [ ] 체크: 전체 파일에서 prefix 기반 분리 이력 요약
+- [ ] 커밋: 마무리 정리 완료 후 커밋
