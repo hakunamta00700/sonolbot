@@ -166,3 +166,10 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service_core.py tests/test_service_core_runtime_di.py && python -m unittest tests/test_service_core_runtime_di.py`
 - [x] 체크: `rg -n \"test_init_core_runtime_accepts_protocol_style_policies|_DuckEnvPolicy|_DuckPythonPolicy\" tests/test_service_core_runtime_di.py`
 - [x] 커밋: `test: allow protocol-style policies in core runtime`
+
+## 우선순위 22: 서비스 생성자 API 호환성 검증
+- [x] 작업: `DaemonService.__init__` 시그니처에 `core_env_policy/core_python_policy` 포함 검증 테스트 추가
+- [x] 테스트: `test_service_core_signature_di.py` 추가
+- [x] 테스트: `python -m py_compile tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
+- [x] 체크: `rg -n \"core_runtime_includes_core_runtime_kwargs|core_env_policy|core_python_policy\" tests/test_service_core_signature_di.py`
+- [x] 커밋: `test: lock in daemon service core runtime ctor API`
