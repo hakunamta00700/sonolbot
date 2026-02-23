@@ -29,7 +29,7 @@ Rules
 ## 4) Phase 4: Control boundary cleanup (Priority 4)
 - [x] P4-1: Extract helper to finalize control message only when send succeeds
 - [x] P4-2: Replace `_handle_single_control_message` repeated `if sent: finalize` branches with helper usage
-- [ ] P4-3: Run syntax check and commit
+- [x] P4-3: Run syntax check and commit
 
 ## 5) Phase 5: Risk sweep
 - [ ] R1: Re-scan startup/parse-mode/exception edges touched by refactors
