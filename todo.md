@@ -217,3 +217,10 @@
 - [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
 - [x] 체크: `rg -n \"service_config_loader|test_daemon_service_ctor_uses_injected_config_loader\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
 - [x] 커밋: `refactor: inject service config loader`
+
+## 우선순위 29: 설정 로더/설정 객체 우선순위 규칙 검증
+- [x] 작업: `service_config` 주입 시 `service_config_loader`가 실행되지 않음을 보장
+- [x] 테스트: `test_daemon_service_config_takes_precedence_over_config_loader` 추가
+- [x] 테스트: `python -m py_compile src/sonolbot/core/daemon/service.py tests/test_service_core_signature_di.py && python -m unittest tests/test_service_core_signature_di.py`
+- [x] 체크: `rg -n \"test_daemon_service_config_takes_precedence_over_config_loader|service_config_loader\" tests/test_service_core_signature_di.py src/sonolbot/core/daemon/service.py`
+- [x] 커밋: `test: service config precedence over config loader`
